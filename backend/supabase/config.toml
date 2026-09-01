@@ -1,0 +1,48 @@
+# ============================================================
+# Supabase LOKAL geliştirme yapılandırması
+# Kullanım: backend/ klasöründe `supabase start` (Docker gerekir)
+# ============================================================
+project_id = "lions-mechanic"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+
+[db]
+port = 54322
+
+[studio]
+enabled = true
+port = 54323
+
+# Lokal e-posta yakalayıcı (gerçek mail gitmez, http://localhost:54324'te görünür)
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Lokalde e-posta doğrulaması kapalı: admin hesabıyla anında giriş yapılır
+enable_confirmations = false
+
+[auth.sms]
+# Telefon + SMS kodu ile giriş
+enable_signup = true
+enable_confirmations = true
+template = "Lions Mechanic dogrulama kodunuz: {{ .Code }}"
+
+# ─── TEST NUMARALARI ────────────────────────────────────────
+# Bu numaralara gerçek SMS GİTMEZ; kod her zaman aşağıda yazandır.
+# Böylece SMS sağlayıcısı olmadan tüm giriş/kayıt akışını test edersiniz.
+[auth.sms.test_otp]
+905551112233 = "123456"
+905551112234 = "123456"
+905551112235 = "123456"
+905551112236 = "123456"

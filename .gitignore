@@ -1,0 +1,51 @@
+# ============================================================
+#  Gizli / hassas dosyalar  --  ASLA commit edilmez
+# ============================================================
+# Ortam degiskenleri (gercek API anahtarlari burada)
+.env
+.env.*
+!.env.example
+docker.env
+*.local
+
+# Supabase yerel gelistirme kalintilari (JWT secret, service_role key vb.)
+backend/supabase/.temp/
+backend/supabase/.branches/
+backend/supabase/.env
+**/supabase/.temp/
+**/supabase/.branches/
+
+# ============================================================
+#  Bagimliliklar ve build ciktilari
+# ============================================================
+node_modules/
+dist/
+dist-ssr/
+build/
+.vite/
+.netlify/
+
+# ============================================================
+#  Loglar
+# ============================================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ============================================================
+#  Editor / OS
+# ============================================================
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
