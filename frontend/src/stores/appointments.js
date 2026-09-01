@@ -28,19 +28,22 @@ export const useAppointmentsStore = defineStore('appointments', () => {
     }
   }
 
-  async function createAppointment({ carId, serviceType, date, time, note }) {
+  async function createAppointment({ carId, serviceType, isCustom, estimatedMin, estimatedMax, date, time, note }) {
     const auth = useAuthStore()
     error.value = null
     const { data, error: err } = await supabase
       .from('appointments')
       .insert({
-        user_id:      auth.currentUser.id,
-        car_id:       carId || null,
-        service_type: serviceType,
+        user_id:       auth.currentUser.id,
+        car_id:        carId || null,
+        service_type:  serviceType,
+        is_custom:     !!isCustom,
+        estimated_min: estimatedMin ?? null,
+        estimated_max: estimatedMax ?? null,
         date,
         time,
-        note:         note || null,
-        status:       'pending',
+        note:          note || null,
+        status:        'pending',
       })
       .select('*, cars(brand, model, plate)')
       .single()

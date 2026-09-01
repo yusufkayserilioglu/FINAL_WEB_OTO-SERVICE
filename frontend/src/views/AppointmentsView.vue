@@ -10,12 +10,28 @@
       <h2 class="form-title">Yeni Randevu</h2>
       <div class="form-group">
         <label>Hizmet</label>
-        <select v-model="form.serviceType" class="form-control">
+        <select v-model="form.serviceKey" class="form-control">
           <option value="" disabled>Seçiniz</option>
-          <option v-for="p in pricing.prices" :key="p.service_key" :value="p.title">
-            {{ p.title }}
+          <option v-for="p in pricing.prices" :key="p.service_key" :value="p.service_key">
+            {{ p.title }} — {{ priceRange(p) }}
           </option>
+          <option value="__custom__">Diğer (kendim yazacağım)</option>
         </select>
+        <p v-if="selectedPrice" class="price-hint">
+          Tahmini ücret: <strong>{{ priceRange(selectedPrice) }}</strong>
+          <span>· Kesin fiyat araç incelendikten sonra belirlenir.</span>
+        </p>
+      </div>
+
+      <div v-if="form.serviceKey === '__custom__'" class="form-group">
+        <label>Yapılmasını istediğiniz işlem</label>
+        <input
+          v-model="form.customService"
+          type="text"
+          class="form-control"
+          placeholder="Örn. Klima bakımı, far ayarı..."
+        />
+        <p class="price-hint">Bu talebiniz servise iletilecek, fiyat bilgisi tarafımızca paylaşılacaktır.</p>
       </div>
       <div class="form-group">
         <label>Araç</label>
@@ -43,7 +59,7 @@
       <p v-if="appointments.error" class="error-msg">{{ appointments.error }}</p>
       <div class="form-actions">
         <button class="btn-cancel-form" @click="showForm = false">Vazgeç</button>
-        <button class="btn-submit" @click="submit" :disabled="submitting">
+        <button class="btn-submit" @click="submit" :disabled="submitting || !resolvedService">
           {{ submitting ? 'Gönderiliyor...' : 'Randevu Al' }}
         </button>
       </div>
@@ -71,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Calendar } from 'lucide-vue-next'
 import { useAppointmentsStore } from '@/stores/appointments'
 import { usePricingStore }      from '@/stores/pricing'
@@ -86,7 +102,25 @@ const showForm  = ref(false)
 const submitting = ref(false)
 const today = new Date().toISOString().split('T')[0]
 
-const form = ref({ serviceType: '', carId: '', date: today, time: '09:00', note: '' })
+const emptyForm = () => ({ serviceKey: '', customService: '', carId: '', date: today, time: '09:00', note: '' })
+const form = ref(emptyForm())
+
+// Seçili hizmetin fiyat kaydı
+const selectedPrice = computed(() =>
+  pricing.prices.find(p => p.service_key === form.value.serviceKey) ?? null
+)
+
+// Randevuya yazılacak hizmet adı (özel talepse kullanıcının yazdığı metin)
+const resolvedService = computed(() => {
+  if (form.value.serviceKey === '__custom__') return form.value.customService.trim()
+  return selectedPrice.value?.title ?? ''
+})
+
+function priceRange(p) {
+  if (!p) return ''
+  const fmt = n => Number(n).toLocaleString('tr-TR')
+  return `${fmt(p.min_price)} - ${fmt(p.max_price)} TL`
+}
 
 onMounted(() => {
   appointments.fetchAppointments()
@@ -95,18 +129,21 @@ onMounted(() => {
 })
 
 async function submit() {
-  if (!form.value.serviceType || !form.value.date || !form.value.time) return
+  if (!resolvedService.value || !form.value.date || !form.value.time) return
   submitting.value = true
   try {
     await appointments.createAppointment({
-      carId:       form.value.carId || null,
-      serviceType: form.value.serviceType,
-      date:        form.value.date,
-      time:        form.value.time,
-      note:        form.value.note,
+      carId:        form.value.carId || null,
+      serviceType:  resolvedService.value,
+      isCustom:     form.value.serviceKey === '__custom__',
+      estimatedMin: selectedPrice.value?.min_price ?? null,
+      estimatedMax: selectedPrice.value?.max_price ?? null,
+      date:         form.value.date,
+      time:         form.value.time,
+      note:         form.value.note,
     })
     showForm.value = false
-    form.value = { serviceType: '', carId: '', date: today, time: '09:00', note: '' }
+    form.value = emptyForm()
   } finally {
     submitting.value = false
   }
@@ -195,6 +232,16 @@ async function cancelAppt(id) {
 .form-control:focus {
   border-color: rgba(201, 168, 76, 0.5);
 }
+
+.price-hint {
+  font-size: 12px;
+  color: #888;
+  margin: 8px 0 0;
+  line-height: 1.5;
+}
+
+.price-hint strong { color: #c9a84c; }
+.price-hint span   { color: #666; }
 
 .form-row {
   display: flex;

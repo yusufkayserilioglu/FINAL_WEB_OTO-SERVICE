@@ -31,10 +31,19 @@ export const useMaintenanceStore = defineStore('maintenance', () => {
   }
 
   // Admin only: create a maintenance record for a user's car
-  async function createRecord({ carId, userId, date, note }) {
+  async function createRecord({ carId, userId, date, note, km, nextServiceDate, nextServiceKm }) {
     const { data, error: err } = await supabase
       .from('maintenance_records')
-      .insert({ car_id: carId, user_id: userId, date, note: note || null, total_cost: 0 })
+      .insert({
+        car_id:            carId,
+        user_id:           userId,
+        date,
+        note:              note || null,
+        km:                km ? parseInt(km) : null,
+        next_service_date: nextServiceDate || null,
+        next_service_km:   nextServiceKm ? parseInt(nextServiceKm) : null,
+        total_cost:        0,
+      })
       .select('*, maintenance_items(*), cars(brand, model, plate)')
       .single()
     if (err) { error.value = err.message; throw err }

@@ -18,6 +18,7 @@ const routes = [
     meta:      { requiresAuth: true, panel: true },
     children: [
       { path: '/dashboard',  name: 'dashboard',    component: () => import('@/views/DashboardView.vue') },
+      { path: '/profil',     name: 'profile',      component: () => import('@/views/ProfileView.vue') },
       { path: '/randevular', name: 'appointments', component: () => import('@/views/AppointmentsView.vue') },
       { path: '/mesajlar',   name: 'messages',     component: () => import('@/views/MessagesView.vue') },
       { path: '/bakim',      name: 'maintenance',  component: () => import('@/views/MaintenanceView.vue') },
@@ -52,15 +53,24 @@ const router = createRouter({
   },
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
+
+  // ÖNEMLİ: oturum localStorage'dan okunana kadar bekle.
+  // Bu olmadan sayfa yenilendiğinde kullanıcı giriş ekranına atılıyordu.
+  await auth.ensureReady()
 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 
-  if (to.matched.some(r => r.meta.requiresAdmin) && auth.currentProfile?.role !== 'admin') {
+  if (to.matched.some(r => r.meta.requiresAdmin) && !auth.isAdmin) {
     return next({ name: 'dashboard' })
+  }
+
+  // Giriş yapmış kullanıcı giriş/kayıt sayfasına gitmeye çalışırsa panele al
+  if ((to.name === 'login' || to.name === 'register') && auth.isLoggedIn && auth.hasProfile) {
+    return next(auth.isAdmin ? '/admin' : '/dashboard')
   }
 
   next()

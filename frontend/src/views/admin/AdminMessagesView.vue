@@ -63,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { MessageCircle, ChevronLeft, Send } from 'lucide-vue-next'
 import { useMessagesStore } from '@/stores/messages'
 import MessageBubble from '@/components/messages/MessageBubble.vue'
@@ -76,10 +76,13 @@ const sending      = ref(false)
 const scrollEl     = ref(null)
 
 onMounted(() => messages.fetchAllConversations())
+onUnmounted(() => messages.unsubscribe())
 
 watch(() => messages.messages.length, () => nextTick(scrollToBottom))
 
 async function openConversation(conv) {
+  // Önceki sohbetin aboneliği kapatılmazsa yeni mesajlar düşmüyordu
+  messages.unsubscribe()
   activeConvId.value = conv.id
   activeName.value   = conv.profiles?.name || 'Müşteri'
   await messages.loadConversationById(conv.id)
@@ -101,6 +104,8 @@ async function sendReply() {
   try {
     await messages.sendAdminMessage(activeConvId.value, content)
     nextTick(scrollToBottom)
+  } catch {
+    reply.value = content   // gönderilemezse metin kaybolmasın
   } finally {
     sending.value = false
   }

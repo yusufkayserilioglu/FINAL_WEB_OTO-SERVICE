@@ -17,25 +17,46 @@ export const useCarsStore = defineStore('cars', () => {
     const { data, error: err } = await supabase
       .from('cars')
       .select('*')
+      .eq('user_id', auth.currentUser.id)
       .order('created_at', { ascending: false })
     if (err) { error.value = err.message }
     else      { cars.value  = data }
     loading.value = false
   }
 
-  async function addCar({ brand, model, year, plate, km }) {
+  async function addCar({ brand, model, year, plate, km, inspectionDate, insuranceDate }) {
     const auth = useAuthStore()
     const payload = {
-      user_id: auth.currentUser.id,
+      user_id:         auth.currentUser.id,
       brand,
       model,
-      year:  parseInt(year),
-      plate: plate.toUpperCase().trim(),
-      km:    parseInt(km),
+      year:            parseInt(year),
+      plate:           plate.toUpperCase().trim(),
+      km:              km ? parseInt(km) : null,
+      inspection_date: inspectionDate || null,
+      insurance_date:  insuranceDate  || null,
     }
     const { data, error: err } = await supabase.from('cars').insert(payload).select().single()
     if (err) throw new Error(err.message)
     cars.value.unshift(data)
+    return data
+  }
+
+  async function updateCar(id, { brand, model, year, plate, km, inspectionDate, insuranceDate }) {
+    const payload = {
+      brand,
+      model,
+      year:            parseInt(year),
+      plate:           plate.toUpperCase().trim(),
+      km:              km ? parseInt(km) : null,
+      inspection_date: inspectionDate || null,
+      insurance_date:  insuranceDate  || null,
+    }
+    const { data, error: err } = await supabase
+      .from('cars').update(payload).eq('id', id).select().single()
+    if (err) throw new Error(err.message)
+    const idx = cars.value.findIndex(c => c.id === id)
+    if (idx !== -1) cars.value[idx] = data
     return data
   }
 
@@ -49,5 +70,5 @@ export const useCarsStore = defineStore('cars', () => {
     return getCostsForBrand(car.brand)
   }
 
-  return { cars, loading, error, fetchCars, addCar, removeCar, getEstimatedCosts }
+  return { cars, loading, error, fetchCars, addCar, updateCar, removeCar, getEstimatedCosts }
 })

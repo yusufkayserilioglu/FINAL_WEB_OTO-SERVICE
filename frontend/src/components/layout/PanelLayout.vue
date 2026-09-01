@@ -9,17 +9,17 @@
         </RouterLink>
       </div>
 
-      <div class="px-4 py-4 border-b border-white/5">
+      <RouterLink to="/profil" class="px-4 py-4 border-b border-white/5 block hover:bg-white/[0.03] transition-colors">
         <div class="flex items-center gap-3">
           <div class="w-9 h-9 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
             <User :size="16" class="text-gold" />
           </div>
           <div class="min-w-0">
             <p class="text-white text-sm font-medium truncate">{{ auth.userName }}</p>
-            <p class="text-gray-600 text-xs truncate">{{ auth.userEmail }}</p>
+            <p class="text-gray-600 text-xs truncate">{{ formatPhone(auth.userPhone) || auth.userEmail }}</p>
           </div>
         </div>
-      </div>
+      </RouterLink>
 
       <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
         <RouterLink
@@ -66,7 +66,7 @@
         v-for="item in navItems"
         :key="item.to"
         :to="item.to"
-        class="flex-1 flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition-colors"
+        class="flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors"
         :class="isActive(item.to) ? 'text-gold' : 'text-gray-600 hover:text-gray-400'"
       >
         <component :is="item.icon" :size="18" />
@@ -84,7 +84,7 @@
 <script setup>
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
 import { Home, Calendar, MessageCircle, Wrench, User, LogOut } from 'lucide-vue-next'
-import { useAuthStore } from '@/stores/auth'
+import { useAuthStore, formatPhone } from '@/stores/auth'
 import site from '@/config/site'
 
 const route  = useRoute()
@@ -93,6 +93,7 @@ const auth   = useAuthStore()
 
 const navItems = [
   { to: '/dashboard',  label: 'Ana Sayfa', icon: Home },
+  { to: '/profil',     label: 'Profil',    icon: User },
   { to: '/randevular', label: 'Randevu',   icon: Calendar },
   { to: '/mesajlar',   label: 'Mesajlar',  icon: MessageCircle },
   { to: '/bakim',      label: 'Bakım',     icon: Wrench },

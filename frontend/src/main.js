@@ -9,10 +9,13 @@ const app   = createApp(App)
 const pinia = createPinia()
 
 app.use(pinia)
+
+// Oturum bilgisi router guard'ından ÖNCE hazır olmalı.
+// Router'ı kurmadan önce init'i başlatıyoruz; guard içinde ensureReady() ile beklenir.
+import { useAuthStore } from './stores/auth'
+useAuthStore().init()
+
 app.use(router)
 app.directive('scroll-reveal', scrollReveal)
 
-import { useAuthStore } from './stores/auth'
-
-const auth = useAuthStore()
-auth.init().finally(() => app.mount('#app'))
+app.mount('#app')

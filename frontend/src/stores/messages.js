@@ -4,12 +4,14 @@ import { supabase }     from '@/lib/supabase'
 import { useAuthStore } from './auth'
 
 export const useMessagesStore = defineStore('messages', () => {
-  const conversation    = ref(null)
-  const messages        = ref([])
-  const conversations   = ref([])   // admin only
-  const loading         = ref(false)
-  const error           = ref(null)
-  let   realtimeSub     = null
+  const conversation  = ref(null)
+  const messages      = ref([])
+  const conversations = ref([])   // admin
+  const loading       = ref(false)
+  const sendError     = ref(null)
+  const error         = ref(null)
+  let   realtimeSub   = null
+  let   pollTimer     = null
 
   async function fetchOrCreateConversation() {
     const auth = useAuthStore()
@@ -21,8 +23,10 @@ export const useMessagesStore = defineStore('messages', () => {
         .from('conversations')
         .select('*')
         .eq('user_id', auth.currentUser.id)
-        .single()
-      if (err && err.code === 'PGRST116') {
+        .maybeSingle()
+      if (err) throw err
+
+      if (!data) {
         const { data: created, error: createErr } = await supabase
           .from('conversations')
           .insert({ user_id: auth.currentUser.id })
@@ -30,11 +34,10 @@ export const useMessagesStore = defineStore('messages', () => {
           .single()
         if (createErr) throw createErr
         data = created
-      } else if (err) {
-        throw err
       }
       conversation.value = data
       await fetchMessages(data.id)
+      await markRead(false)
     } catch (e) {
       error.value = e.message
     } finally {
@@ -45,16 +48,27 @@ export const useMessagesStore = defineStore('messages', () => {
   async function fetchMessages(conversationId) {
     const { data, error: err } = await supabase
       .from('messages')
-      .select('*, profiles(name)')
+      .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
     if (err) throw err
-    messages.value = data
+    messages.value = data ?? []
+  }
+
+  // Yeni mesajları kaçırmamak için: aynı id iki kez eklenmez
+  function upsertMessage(msg) {
+    if (!msg) return
+    const idx = messages.value.findIndex(m => m.id === msg.id)
+    if (idx === -1) messages.value.push(msg)
+    else            messages.value[idx] = { ...messages.value[idx], ...msg }
   }
 
   async function sendMessage(content) {
     const auth = useAuthStore()
+    sendError.value = null
     if (!conversation.value) await fetchOrCreateConversation()
+    if (!conversation.value) { sendError.value = 'Sohbet açılamadı.'; throw new Error('no conversation') }
+
     const { data, error: err } = await supabase
       .from('messages')
       .insert({
@@ -63,31 +77,83 @@ export const useMessagesStore = defineStore('messages', () => {
         is_admin:        false,
         content,
       })
-      .select('*, profiles(name)')
+      .select()
       .single()
-    if (err) { error.value = err.message; throw err }
-    messages.value.push(data)
+    if (err) { sendError.value = 'Mesaj gönderilemedi. Tekrar deneyin.'; throw err }
+    upsertMessage(data)
 
     await supabase
       .from('conversations')
-      .update({ last_message_at: new Date().toISOString(), unread_admin: (conversation.value.unread_admin || 0) + 1 })
+      .update({
+        last_message_at: new Date().toISOString(),
+        unread_admin:    (conversation.value.unread_admin || 0) + 1,
+      })
       .eq('id', conversation.value.id)
+    return data
   }
 
+  async function sendAdminMessage(conversationId, content) {
+    const auth = useAuthStore()
+    sendError.value = null
+    const { data, error: err } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id:       auth.currentUser.id,
+        is_admin:        true,
+        content,
+      })
+      .select()
+      .single()
+    if (err) { sendError.value = 'Mesaj gönderilemedi. Tekrar deneyin.'; throw err }
+    upsertMessage(data)
+
+    const conv = conversations.value.find(c => c.id === conversationId)
+    await supabase
+      .from('conversations')
+      .update({
+        last_message_at: new Date().toISOString(),
+        unread_admin:    0,
+        unread_user:     ((conv?.unread_user) || 0) + 1,
+      })
+      .eq('id', conversationId)
+    return data
+  }
+
+  // ─── Realtime ─────────────────────────────────────────────────────────────
+  // Not: önceki abonelik kapatılmadan yenisi açılırsa (admin sohbetler arasında
+  // geçiş yaparken) yeni mesajlar düşmüyordu. Artık her seferinde önce kapatılır.
   function subscribeToMessages() {
-    if (!conversation.value || realtimeSub) return
+    if (!conversation.value) return
+    unsubscribe()
+    const convId = conversation.value.id
+
     realtimeSub = supabase
-      .channel(`messages:${conversation.value.id}`)
+      .channel(`messages-${convId}`)
       .on('postgres_changes', {
         event:  'INSERT',
         schema: 'public',
         table:  'messages',
-        filter: `conversation_id=eq.${conversation.value.id}`,
-      }, payload => {
-        const exists = messages.value.some(m => m.id === payload.new.id)
-        if (!exists) messages.value.push(payload.new)
-      })
+        filter: `conversation_id=eq.${convId}`,
+      }, payload => upsertMessage(payload.new))
       .subscribe()
+
+    // Realtime bağlantısı koparsa mesaj kaybolmasın diye yedek yoklama
+    pollTimer = setInterval(() => {
+      if (conversation.value?.id === convId) refreshMessages()
+    }, 12000)
+
+    // Sekmeye geri dönüldüğünde hemen tazele
+    document.addEventListener('visibilitychange', onVisible)
+  }
+
+  function onVisible() {
+    if (document.visibilityState === 'visible') refreshMessages()
+  }
+
+  async function refreshMessages() {
+    if (!conversation.value) return
+    try { await fetchMessages(conversation.value.id) } catch { /* sessizce yut */ }
   }
 
   function unsubscribe() {
@@ -95,18 +161,31 @@ export const useMessagesStore = defineStore('messages', () => {
       supabase.removeChannel(realtimeSub)
       realtimeSub = null
     }
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+    document.removeEventListener('visibilitychange', onVisible)
   }
 
-  // Admin only
+  // Okundu bilgisini sıfırla (isAdmin=true → admin okudu)
+  async function markRead(isAdmin) {
+    if (!conversation.value) return
+    const patch = isAdmin ? { unread_admin: 0 } : { unread_user: 0 }
+    await supabase.from('conversations').update(patch).eq('id', conversation.value.id)
+    Object.assign(conversation.value, patch)
+  }
+
+  // ─── Admin ────────────────────────────────────────────────────────────────
   async function fetchAllConversations() {
     loading.value = true
     try {
       const { data, error: err } = await supabase
         .from('conversations')
         .select('*, profiles(name, phone)')
-        .order('last_message_at', { ascending: false })
+        .order('last_message_at', { ascending: false, nullsFirst: false })
       if (err) throw err
-      conversations.value = data
+      conversations.value = data ?? []
     } catch (e) {
       error.value = e.message
     } finally {
@@ -125,6 +204,7 @@ export const useMessagesStore = defineStore('messages', () => {
       if (err) throw err
       conversation.value = data
       await fetchMessages(conversationId)
+      await markRead(true)
     } catch (e) {
       error.value = e.message
     } finally {
@@ -132,32 +212,10 @@ export const useMessagesStore = defineStore('messages', () => {
     }
   }
 
-  async function sendAdminMessage(conversationId, content) {
-    const auth = useAuthStore()
-
-    const { data, error: err } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_id:       auth.currentUser.id,
-        is_admin:        true,
-        content,
-      })
-      .select('*, profiles(name)')
-      .single()
-    if (err) { error.value = err.message; throw err }
-    messages.value.push(data)
-
-    await supabase
-      .from('conversations')
-      .update({ last_message_at: new Date().toISOString(), unread_admin: 0 })
-      .eq('id', conversationId)
-  }
-
   return {
-    conversation, messages, conversations, loading, error,
-    fetchOrCreateConversation, sendMessage,
-    subscribeToMessages, unsubscribe,
+    conversation, messages, conversations, loading, error, sendError,
+    fetchOrCreateConversation, fetchMessages, refreshMessages, sendMessage,
+    subscribeToMessages, unsubscribe, markRead,
     fetchAllConversations, loadConversationById, sendAdminMessage,
   }
 })

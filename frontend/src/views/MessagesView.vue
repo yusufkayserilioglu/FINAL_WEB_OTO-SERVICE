@@ -25,6 +25,8 @@
       </template>
     </div>
 
+    <p v-if="messages.sendError" class="send-error">{{ messages.sendError }}</p>
+
     <div class="input-bar">
       <textarea
         v-model="newMessage"
@@ -74,6 +76,9 @@ async function send() {
     await messages.sendMessage(content)
     await nextTick()
     scrollToBottom()
+  } catch {
+    // Gönderilemezse yazdığı metin kaybolmasın
+    newMessage.value = content
   } finally {
     sending.value = false
   }
@@ -158,6 +163,15 @@ function scrollToBottom() {
 
 .empty-chat p {
   font-size: 14px;
+}
+
+.send-error {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.08);
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .input-bar {
