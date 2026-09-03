@@ -94,7 +94,7 @@
           <div class="p-5" style="background: #0b0b0b;">
             <div class="flex items-center gap-2 mb-1.5">
               <ClipboardCheck :size="14" class="text-gray-600" />
-              <p class="text-gray-600 text-xs uppercase tracking-widest">TÜVTÜRK Muayene</p>
+              <p class="text-gray-600 text-xs uppercase tracking-widest">TÜVTÜRK Muayene Son Geçerlilik Tarihi</p>
             </div>
             <template v-if="car.inspection_date">
               <p class="text-white font-medium">{{ formatDate(car.inspection_date) }}</p>
@@ -112,7 +112,7 @@
           <div class="p-5" style="background: #0b0b0b;">
             <div class="flex items-center gap-2 mb-1.5">
               <ShieldCheck :size="14" class="text-gray-600" />
-              <p class="text-gray-600 text-xs uppercase tracking-widest">Sigorta Yenileme</p>
+              <p class="text-gray-600 text-xs uppercase tracking-widest">Sigorta Son Geçerlilik Tarihi</p>
             </div>
             <template v-if="car.insurance_date">
               <p class="text-white font-medium">{{ formatDate(car.insurance_date) }}</p>

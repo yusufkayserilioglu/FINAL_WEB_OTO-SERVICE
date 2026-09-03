@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <div class="messages-area" ref="scrollEl">
+    <div class="messages-area" ref="scrollEl" @scroll="onScroll">
       <div v-if="messages.loading" class="loading">Yükleniyor...</div>
 
       <div v-else-if="!messages.messages.length" class="empty-chat">
@@ -17,45 +17,43 @@
       </div>
 
       <template v-else>
-        <MessageBubble
-          v-for="msg in messages.messages"
-          :key="msg.id"
-          :message="msg"
-        />
+        <template v-for="group in messageGroups" :key="group.key">
+          <DateDivider v-if="group.label" :label="group.label" />
+          <MessageBubble
+            v-for="msg in group.items"
+            :key="msg.id"
+            :message="msg"
+            @img-load="keepDown"
+          />
+        </template>
       </template>
     </div>
 
     <p v-if="messages.sendError" class="send-error">{{ messages.sendError }}</p>
 
-    <div class="input-bar">
-      <textarea
-        v-model="newMessage"
-        class="message-input"
-        placeholder="Mesajınızı yazın..."
-        rows="1"
-        @keydown.enter.exact.prevent="send"
-      ></textarea>
-      <button class="send-btn" @click="send" :disabled="!newMessage.trim() || sending">
-        <Send :size="20" />
-      </button>
-    </div>
+    <ChatComposer :on-submit="handleSend" placeholder="Mesajınızı yazın..." />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { MessageCircle, Send } from 'lucide-vue-next'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { MessageCircle } from 'lucide-vue-next'
 import { useMessagesStore } from '@/stores/messages'
 import MessageBubble from '@/components/messages/MessageBubble.vue'
+import DateDivider   from '@/components/messages/DateDivider.vue'
+import ChatComposer  from '@/components/messages/ChatComposer.vue'
+import { groupMessagesByDay } from '@/utils/chat'
 
-const messages   = useMessagesStore()
-const newMessage = ref('')
-const sending    = ref(false)
-const scrollEl   = ref(null)
+const messages = useMessagesStore()
+const scrollEl = ref(null)
+const stick    = ref(true)   // kullanıcı en alttaysa yeni içerik geldikçe aşağıda tut
+
+const messageGroups = computed(() => groupMessagesByDay(messages.messages))
 
 onMounted(async () => {
   await messages.fetchOrCreateConversation()
   messages.subscribeToMessages()
+  await nextTick()
   scrollToBottom()
 })
 
@@ -67,26 +65,32 @@ watch(() => messages.messages.length, () => {
   nextTick(scrollToBottom)
 })
 
-async function send() {
-  const content = newMessage.value.trim()
-  if (!content) return
-  sending.value = true
-  newMessage.value = ''
-  try {
-    await messages.sendMessage(content)
-    await nextTick()
-    scrollToBottom()
-  } catch {
-    // Gönderilemezse yazdığı metin kaybolmasın
-    newMessage.value = content
-  } finally {
-    sending.value = false
+async function handleSend({ text, file }) {
+  let imageUrl = null
+  if (file) {
+    if (!messages.conversation) await messages.fetchOrCreateConversation()
+    imageUrl = await messages.uploadMessageImage(file)
   }
+  await messages.sendMessage(text, imageUrl)
+  await nextTick()
+  scrollToBottom()
+}
+
+function onScroll() {
+  const el = scrollEl.value
+  if (!el) return
+  stick.value = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+}
+
+function keepDown() {
+  if (stick.value) scrollToBottom()
 }
 
 function scrollToBottom() {
-  if (scrollEl.value) {
-    scrollEl.value.scrollTop = scrollEl.value.scrollHeight
+  const el = scrollEl.value
+  if (el) {
+    el.scrollTop = el.scrollHeight
+    stick.value = true
   }
 }
 </script>
@@ -172,52 +176,6 @@ function scrollToBottom() {
   color: #f87171;
   background: rgba(239, 68, 68, 0.08);
   border-top: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.input-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  padding: 12px 16px;
-  background: #111;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  flex-shrink: 0;
-}
-
-.message-input {
-  flex: 1;
-  background: #1a1a1a;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 20px;
-  padding: 10px 16px;
-  color: #e5e5e5;
-  font-size: 14px;
-  resize: none;
-  outline: none;
-  max-height: 100px;
-  font-family: 'Inter', sans-serif;
-}
-
-.message-input:focus {
-  border-color: rgba(201, 168, 76, 0.4);
-}
-
-.send-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #c9a84c, #e0bc6e);
-  border: none;
-  color: #080808;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.send-btn:disabled {
-  opacity: 0.5;
 }
 
 @media (min-width: 1024px) {

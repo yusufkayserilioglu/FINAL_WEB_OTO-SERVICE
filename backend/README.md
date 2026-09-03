@@ -6,10 +6,14 @@ Bu projenin backend'i **Supabase** üzerinde çalışır. Ayrı bir sunucu kodu 
 
 ```
 backend/
-├── README.md                 → bu dosya
+├── README.md                        → bu dosya
 └── migrations/
-    └── 001_sema.sql          → tüm tablolar + RLS politikaları + varsayılan fiyatlar
+    ├── 001_sema.sql                 → tüm tablolar + RLS politikaları + varsayılan fiyatlar
+    ├── 002_profil_arac_randevu.sql  → profil/araç/randevu alan güncellemeleri
+    └── 003_mesaj_fotograflari.sql   → mesajlara fotoğraf + Storage bucket'ı ve politikaları
 ```
+
+> Dosyaları **sırayla** (001 → 002 → 003) çalıştırın. Hepsi yeniden çalıştırmaya güvenlidir.
 
 ## Kurulum (özet)
 
@@ -27,7 +31,8 @@ Adım adım tam kurulum (admin hesabı oluşturma dahil) için kök dizindeki **
 | `cars` | Kullanıcının kayıtlı araçları |
 | `appointments` | Randevular (bekliyor / onaylandı / iptal) |
 | `conversations` | Kullanıcı ↔ admin konuşmaları (kullanıcı başına 1 adet) |
-| `messages` | Sohbet mesajları (Realtime ile anlık iletilir) |
+| `messages` | Sohbet mesajları (Realtime ile anlık iletilir); `content` metin, `image_url` fotoğraf bağlantısı |
+| Storage `message-images` | Sohbette paylaşılan fotoğraflar (003 ile oluşturulur; `conversation_id/…` klasör yapısı + RLS) |
 | `maintenance_records` | Bakım/servis kayıtları (sadece admin ekler) |
 | `maintenance_items` | Bakım kayıtlarındaki işlem kalemleri ve tutarları |
 | `service_prices` | Hizmet fiyat aralıkları (herkes okur, sadece admin günceller) |

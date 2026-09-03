@@ -63,9 +63,26 @@ export const useMessagesStore = defineStore('messages', () => {
     else            messages.value[idx] = { ...messages.value[idx], ...msg }
   }
 
-  async function sendMessage(content) {
+  // Fotoğrafı Storage'a yükler, herkese açık URL'ini döndürür.
+  // Yol: <conversation_id>/<uuid>.<uzantı>  (RLS bu klasör yapısına dayanır)
+  async function uploadMessageImage(file, conversationId = conversation.value?.id) {
+    if (!conversationId) throw new Error('Sohbet bulunamadı.')
+    const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+    const path = `${conversationId}/${crypto.randomUUID()}.${ext}`
+
+    const { error: upErr } = await supabase.storage
+      .from('message-images')
+      .upload(path, file, { cacheControl: '3600', contentType: file.type || 'image/jpeg' })
+    if (upErr) { sendError.value = 'Fotoğraf yüklenemedi. Tekrar deneyin.'; throw upErr }
+
+    const { data } = supabase.storage.from('message-images').getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  async function sendMessage(content, imageUrl = null) {
     const auth = useAuthStore()
     sendError.value = null
+    if (!content && !imageUrl) return
     if (!conversation.value) await fetchOrCreateConversation()
     if (!conversation.value) { sendError.value = 'Sohbet açılamadı.'; throw new Error('no conversation') }
 
@@ -75,7 +92,8 @@ export const useMessagesStore = defineStore('messages', () => {
         conversation_id: conversation.value.id,
         sender_id:       auth.currentUser.id,
         is_admin:        false,
-        content,
+        content:         content || null,
+        image_url:       imageUrl,
       })
       .select()
       .single()
@@ -92,16 +110,18 @@ export const useMessagesStore = defineStore('messages', () => {
     return data
   }
 
-  async function sendAdminMessage(conversationId, content) {
+  async function sendAdminMessage(conversationId, content, imageUrl = null) {
     const auth = useAuthStore()
     sendError.value = null
+    if (!content && !imageUrl) return
     const { data, error: err } = await supabase
       .from('messages')
       .insert({
         conversation_id: conversationId,
         sender_id:       auth.currentUser.id,
         is_admin:        true,
-        content,
+        content:         content || null,
+        image_url:       imageUrl,
       })
       .select()
       .single()
@@ -215,6 +235,7 @@ export const useMessagesStore = defineStore('messages', () => {
   return {
     conversation, messages, conversations, loading, error, sendError,
     fetchOrCreateConversation, fetchMessages, refreshMessages, sendMessage,
+    uploadMessageImage,
     subscribeToMessages, unsubscribe, markRead,
     fetchAllConversations, loadConversationById, sendAdminMessage,
   }

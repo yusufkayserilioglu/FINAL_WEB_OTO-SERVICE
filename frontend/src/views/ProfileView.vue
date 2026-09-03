@@ -165,13 +165,13 @@
           <div></div>
           <div>
             <label class="block text-gray-500 text-xs uppercase tracking-widest mb-1.5">
-              Muayene Tarihi <span class="text-gray-700 normal-case tracking-normal">(isteğe bağlı)</span>
+              Muayene Son Geçerlilik Tarihi <span class="text-gray-700 normal-case tracking-normal">(isteğe bağlı)</span>
             </label>
             <input v-model="carForm.inspectionDate" type="date" class="input" />
           </div>
           <div>
             <label class="block text-gray-500 text-xs uppercase tracking-widest mb-1.5">
-              Sigorta Yenileme <span class="text-gray-700 normal-case tracking-normal">(isteğe bağlı)</span>
+              Sigorta Son Geçerlilik Tarihi <span class="text-gray-700 normal-case tracking-normal">(isteğe bağlı)</span>
             </label>
             <input v-model="carForm.insuranceDate" type="date" class="input" />
           </div>

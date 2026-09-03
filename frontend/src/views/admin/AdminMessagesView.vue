@@ -38,42 +38,39 @@
       </button>
       <div class="chat-customer-name">{{ activeName }}</div>
 
-      <div class="messages-area" ref="scrollEl">
-        <MessageBubble
-          v-for="msg in messages.messages"
-          :key="msg.id"
-          :message="msg"
-        />
+      <div class="messages-area" ref="scrollEl" @scroll="onScroll">
+        <template v-for="group in messageGroups" :key="group.key">
+          <DateDivider v-if="group.label" :label="group.label" />
+          <MessageBubble
+            v-for="msg in group.items"
+            :key="msg.id"
+            :message="msg"
+            @img-load="keepDown"
+          />
+        </template>
       </div>
 
-      <div class="input-bar">
-        <textarea
-          v-model="reply"
-          class="message-input"
-          placeholder="Yanıt yazın..."
-          rows="1"
-          @keydown.enter.exact.prevent="sendReply"
-        ></textarea>
-        <button class="send-btn" @click="sendReply" :disabled="!reply.trim() || sending">
-          <Send :size="20" />
-        </button>
-      </div>
+      <ChatComposer :on-submit="handleSend" placeholder="Yanıt yazın..." />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { MessageCircle, ChevronLeft, Send } from 'lucide-vue-next'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { MessageCircle, ChevronLeft } from 'lucide-vue-next'
 import { useMessagesStore } from '@/stores/messages'
 import MessageBubble from '@/components/messages/MessageBubble.vue'
+import DateDivider   from '@/components/messages/DateDivider.vue'
+import ChatComposer  from '@/components/messages/ChatComposer.vue'
+import { groupMessagesByDay } from '@/utils/chat'
 
 const messages     = useMessagesStore()
 const activeConvId = ref(null)
 const activeName   = ref('')
-const reply        = ref('')
-const sending      = ref(false)
 const scrollEl     = ref(null)
+const stick        = ref(true)
+
+const messageGroups = computed(() => groupMessagesByDay(messages.messages))
 
 onMounted(() => messages.fetchAllConversations())
 onUnmounted(() => messages.unsubscribe())
@@ -96,23 +93,31 @@ function closeConversation() {
   messages.fetchAllConversations()
 }
 
-async function sendReply() {
-  const content = reply.value.trim()
-  if (!content) return
-  sending.value = true
-  reply.value = ''
-  try {
-    await messages.sendAdminMessage(activeConvId.value, content)
-    nextTick(scrollToBottom)
-  } catch {
-    reply.value = content   // gönderilemezse metin kaybolmasın
-  } finally {
-    sending.value = false
-  }
+async function handleSend({ text, file }) {
+  const convId = activeConvId.value
+  let imageUrl = null
+  if (file) imageUrl = await messages.uploadMessageImage(file, convId)
+  await messages.sendAdminMessage(convId, text, imageUrl)
+  await nextTick()
+  scrollToBottom()
+}
+
+function onScroll() {
+  const el = scrollEl.value
+  if (!el) return
+  stick.value = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+}
+
+function keepDown() {
+  if (stick.value) scrollToBottom()
 }
 
 function scrollToBottom() {
-  if (scrollEl.value) scrollEl.value.scrollTop = scrollEl.value.scrollHeight
+  const el = scrollEl.value
+  if (el) {
+    el.scrollTop = el.scrollHeight
+    stick.value = true
+  }
 }
 
 function initials(name) {
@@ -240,44 +245,6 @@ function formatTime(ts) {
   overflow-y: auto;
   padding: 16px;
 }
-
-.input-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-  padding: 12px 16px;
-  background: #111;
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
-
-.message-input {
-  flex: 1;
-  background: #1a1a1a;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 20px;
-  padding: 10px 16px;
-  color: #e5e5e5;
-  font-size: 14px;
-  resize: none;
-  outline: none;
-  max-height: 100px;
-  font-family: 'Inter', sans-serif;
-}
-
-.send-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #c9a84c, #e0bc6e);
-  border: none;
-  color: #080808;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.send-btn:disabled { opacity: 0.5; }
 
 @media (min-width: 1024px) {
   .page-container { height: 100dvh; }

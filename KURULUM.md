@@ -21,8 +21,11 @@ lions-mechanic/
 
 1. https://supabase.com → ücretsiz hesap açın → **New Project** oluşturun.
 2. Sol menü → **SQL Editor** → **New query**.
-3. `backend/migrations/001_sema.sql` dosyasının tüm içeriğini yapıştırın ve **Run** deyin.
-   - Bu tek dosya; tabloları, RLS güvenlik politikalarını, varsayılan hizmet fiyatlarını ve anlık mesajlaşma için Realtime ayarını kurar.
+3. `backend/migrations/` altındaki dosyaları **sırayla** yapıştırıp **Run** deyin:
+   1. `001_sema.sql` — tablolar, RLS güvenlik politikaları, varsayılan hizmet fiyatları ve Realtime ayarı.
+   2. `002_profil_arac_randevu.sql` — profil/araç/randevu alan güncellemeleri.
+   3. `003_mesaj_fotograflari.sql` — mesajlara fotoğraf desteği; `message-images` Storage bucket'ını ve erişim politikalarını **otomatik oluşturur** (ayrıca panelden bir şey açmanıza gerek yok).
+   - Hepsi yeniden çalıştırmaya güvenlidir.
 4. Sol menü → **Project Settings → API**:
    - `Project URL` değerini kopyalayın.
    - `anon` / `publishable` API key değerini kopyalayın.
@@ -70,7 +73,7 @@ Netlify'a dağıtıyorsanız `netlify.toml` hazırdır; ortam değişkenlerini (
 - **Kullanıcı paneli** (giriş yapınca):
   - **Ana Sayfa (`/dashboard`)** → kayıtlı araçlar (marka, model, yıl, plaka, km), tahmini bakım maliyetleri, araç ekleme/silme ve profil bilgileri.
   - **Randevular (`/randevular`)** → randevu oluşturma ve iptal.
-  - **Mesajlar (`/mesajlar`)** → admin (servis ekibi) ile **anlık** mesajlaşma. Supabase Realtime sayesinde yeni mesajlar sayfa yenilenmeden görünür.
+  - **Mesajlar (`/mesajlar`)** → admin (servis ekibi) ile **anlık** mesajlaşma. Supabase Realtime sayesinde yeni mesajlar sayfa yenilenmeden görünür. Mesajlar gün gün tarih başlıklarıyla ayrılır; hem kullanıcı hem admin **fotoğraf** gönderebilir (fotoğraflar yüklenmeden önce tarayıcıda küçültülür).
   - **Bakım (`/bakim`)** → servise ait bakım/servis geçmişi (kayıtları admin ekler, kullanıcı görüntüler), araca göre filtreleme.
 
 ## 4) Admin hesabı oluşturma (ZORUNLU adım)
@@ -93,7 +96,7 @@ WHERE id = (SELECT id FROM auth.users WHERE email = 'admin@ornek.com');
 | Sayfa | Ne yapar |
 |---|---|
 | `/admin` | Genel bakış: müşteri sayısı, bekleyen randevu, okunmamış mesaj + hızlı erişim kartları |
-| `/admin/mesajlar` | Tüm müşteri konuşmaları listelenir; bir konuşmaya girip müşteriyle **anlık chat** yapılır |
+| `/admin/mesajlar` | Tüm müşteri konuşmaları listelenir; bir konuşmaya girip müşteriyle **anlık chat** yapılır (tarih başlıkları + fotoğraf gönderme dahil) |
 | `/admin/musteriler` | Müşteri listesi ve arama |
 | `/admin/musteri/:id` | Müşteri detayı: iletişim bilgileri, **araçları**, **bakım geçmişi**; buradan yeni bakım kaydı ve işlem kalemi (tutarıyla) eklenir |
 | `/admin/randevular` | Gelen randevuları onaylama / iptal etme |
@@ -111,4 +114,5 @@ Fiyatlar `service_prices` tablosunda tutulur; admin `/admin/fiyatlar`'dan günce
 | Kayıt oluyor ama giriş yapamıyorum | E-posta doğrulaması açık; gelen kutunuzdaki linke tıklayın ya da Supabase'de "Confirm email"i kapatın. |
 | Admin sayfası dashboard'a atıyor | İlgili kullanıcının `profiles.role` değeri `admin` değil. 4. adımdaki SQL'i çalıştırın ve yeniden giriş yapın. |
 | Mesajlar anlık düşmüyor | SQL dosyasını tamamen çalıştırdığınızdan emin olun (sondaki Realtime bölümü `messages` tablosunu yayına ekler). Dashboard → Database → Replication'dan da kontrol edebilirsiniz. |
+| Fotoğraf gönderilemiyor / "Fotoğraf yüklenemedi" | `003_mesaj_fotograflari.sql` çalıştırılmamış. Dashboard → Storage'da `message-images` bucket'ı ve Storage politikaları bu dosyayla oluşur. |
 | Fiyatlar sayfası boş | `001_sema.sql` içindeki varsayılan fiyat INSERT'leri çalışmamış olabilir; SQL Editor'de o bölümü tekrar çalıştırın. |
