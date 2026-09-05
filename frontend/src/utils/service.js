@@ -43,24 +43,35 @@ export function lastServiceOf(records, carId) {
 
 /**
  * Sonraki bakıma kalanı hesaplar.
- * Kayıtta next_service_date / next_service_km varsa onlar kullanılır;
- * yoksa son servis tarihinden +1 yıl, son servis km'sinden +15.000 km varsayılır.
+ * Öncelik sırası:
+ *   1) Aracın kendi üzerindeki next_service_date / next_service_km (rapor kesinleşince yazılır)
+ *   2) Son servis kaydındaki next_service_date / next_service_km
+ *   3) Son servis tarihinden +1 yıl, son servis km'sinden +15.000 km (tahmin)
  */
 export function nextServiceInfo(car, lastRecord) {
-  if (!lastRecord) return null
+  const carDate = car?.next_service_date || null
+  const carKm   = (car?.next_service_km ?? null) !== null ? car.next_service_km : null
+
+  if (!lastRecord && !carDate && carKm === null) return null
 
   // Tarih tarafı
-  let targetDate = lastRecord.next_service_date
-  if (!targetDate && lastRecord.date) {
+  let targetDate = carDate || lastRecord?.next_service_date || null
+  let dateIsEstimate = false
+  if (!targetDate && lastRecord?.date) {
     const d = new Date(lastRecord.date)
     d.setDate(d.getDate() + DEFAULT_INTERVAL_DAYS)
     targetDate = d.toISOString().slice(0, 10)
+    dateIsEstimate = true
   }
   const remainingDays = daysUntil(targetDate)
 
   // Km tarafı
-  const baseKm = lastRecord.next_service_km
-    ?? ((lastRecord.km ?? null) !== null ? lastRecord.km + DEFAULT_INTERVAL_KM : null)
+  let baseKm = carKm ?? lastRecord?.next_service_km ?? null
+  let kmIsEstimate = false
+  if (baseKm === null && (lastRecord?.km ?? null) !== null) {
+    baseKm = lastRecord.km + DEFAULT_INTERVAL_KM
+    kmIsEstimate = true
+  }
   const remainingKm = (baseKm !== null && car?.km !== null && car?.km !== undefined)
     ? baseKm - car.km
     : null
@@ -70,7 +81,7 @@ export function nextServiceInfo(car, lastRecord) {
     targetKm: baseKm,
     remainingDays,
     remainingKm,
-    isEstimate: !lastRecord.next_service_date && !lastRecord.next_service_km,
+    isEstimate: dateIsEstimate && (kmIsEstimate || baseKm === null),
     overdue: (remainingDays !== null && remainingDays < 0) || (remainingKm !== null && remainingKm < 0),
   }
 }

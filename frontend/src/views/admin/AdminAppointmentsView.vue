@@ -14,25 +14,26 @@
         @click="activeTab = tab.value"
       >
         {{ tab.label }}
-        <span v-if="countByStatus(tab.value)" class="tab-count">{{ countByStatus(tab.value) }}</span>
+        <span v-if="count(tab.value)" class="tab-count">{{ count(tab.value) }}</span>
       </button>
     </div>
 
     <div v-if="appointments.loading" class="loading">Yükleniyor...</div>
 
-    <div v-else-if="!filteredAppointments.length" class="empty-state">
+    <div v-else-if="!filtered.length" class="empty-state">
       <Calendar :size="48" class="empty-icon" />
       <p>Bu durumda randevu yok</p>
     </div>
 
     <div v-else>
       <AppointmentCard
-        v-for="appt in filteredAppointments"
+        v-for="appt in filtered"
         :key="appt.id"
         :appointment="appt"
         :is-admin="true"
         @confirm="id => appointments.updateStatus(id, 'confirmed')"
         @cancel="id => appointments.updateStatus(id, 'cancelled')"
+        @report="handleReport"
       />
     </div>
   </div>
@@ -40,27 +41,45 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { Calendar } from 'lucide-vue-next'
-import { useAppointmentsStore } from '@/stores/appointments'
+import { useAppointmentsStore, isPendingCompletion } from '@/stores/appointments'
 import AppointmentCard from '@/components/appointments/AppointmentCard.vue'
 
 const appointments = useAppointmentsStore()
+const router       = useRouter()
 const activeTab    = ref('pending')
 
 const tabs = [
   { value: 'pending',   label: 'Bekleyen' },
   { value: 'confirmed', label: 'Onaylı' },
+  { value: 'service',   label: 'Serviste' },
+  { value: 'completed', label: 'Tamamlandı' },
   { value: 'cancelled', label: 'İptal' },
 ]
 
 onMounted(() => appointments.fetchAllAppointments())
 
-const filteredAppointments = computed(() =>
-  appointments.appointments.filter(a => a.status === activeTab.value)
+function matches(a, tab) {
+  if (tab === 'service') return isPendingCompletion(a)
+  return a.status === tab
+}
+
+const filtered = computed(() =>
+  appointments.appointments.filter(a => matches(a, activeTab.value))
 )
 
-function countByStatus(status) {
-  return appointments.appointments.filter(a => a.status === status).length || 0
+function count(tab) {
+  return appointments.appointments.filter(a => matches(a, tab)).length || 0
+}
+
+async function handleReport(appt) {
+  try {
+    const recId = await appointments.convertToMaintenance(appt)
+    router.push(`/admin/bakim/${recId}`)
+  } catch (e) {
+    alert(e.message || 'Rapor oluşturulamadı')
+  }
 }
 </script>
 
@@ -84,13 +103,16 @@ function countByStatus(status) {
 
 .filter-tabs {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.filter-tabs::-webkit-scrollbar { display: none; }
 
 .filter-tab {
-  flex: 1;
-  padding: 9px 4px;
+  flex-shrink: 0;
+  padding: 9px 12px;
   border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
@@ -102,6 +124,7 @@ function countByStatus(status) {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .filter-tab.active {

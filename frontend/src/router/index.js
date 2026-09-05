@@ -22,6 +22,7 @@ const routes = [
       { path: '/randevular', name: 'appointments', component: () => import('@/views/AppointmentsView.vue') },
       { path: '/mesajlar',   name: 'messages',     component: () => import('@/views/MessagesView.vue') },
       { path: '/bakim',      name: 'maintenance',  component: () => import('@/views/MaintenanceView.vue') },
+      { path: '/bakim/:recordId', name: 'maintenance-report', component: () => import('@/views/MaintenanceReportView.vue') },
     ],
   },
 
@@ -36,6 +37,7 @@ const routes = [
       { path: 'mesajlar',      name: 'admin-messages',        component: () => import('@/views/admin/AdminMessagesView.vue') },
       { path: 'musteriler',    name: 'admin-customers',       component: () => import('@/views/admin/AdminCustomersView.vue') },
       { path: 'musteri/:id',   name: 'admin-customer-detail', component: () => import('@/views/admin/AdminCustomerDetailView.vue') },
+      { path: 'bakim/:recordId', name: 'admin-maintenance-report', component: () => import('@/views/admin/AdminMaintenanceReportView.vue') },
       { path: 'fiyatlar',      name: 'admin-pricing',         component: () => import('@/views/admin/AdminPricingView.vue') },
     ],
   },

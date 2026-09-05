@@ -293,7 +293,7 @@ const recentRecords = computed(() => maintenance.records.slice(0, 3))
 const upcoming = computed(() => {
   const today = new Date().toISOString().slice(0, 10)
   return appointments.appointments
-    .filter(a => a.status !== 'cancelled' && a.date >= today)
+    .filter(a => a.status !== 'cancelled' && a.status !== 'completed' && a.date >= today)
     .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
     .slice(0, 3)
 })

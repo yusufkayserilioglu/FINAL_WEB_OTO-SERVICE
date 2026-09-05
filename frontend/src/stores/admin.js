@@ -28,7 +28,7 @@ export const useAdminStore = defineStore('admin', () => {
   async function fetchCustomerById(userId) {
     const { data, error: err } = await supabase
       .from('profiles')
-      .select('*, cars(id, brand, model, plate, year, km)')
+      .select('*, cars(id, brand, model, plate, year, km, next_service_date, next_service_km)')
       .eq('id', userId)
       .single()
     if (err) throw err

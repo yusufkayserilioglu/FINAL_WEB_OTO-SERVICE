@@ -24,35 +24,40 @@
         <h2 class="section-title">Araçlar</h2>
         <div v-if="!customer.cars?.length" class="empty-sm">Araç yok</div>
         <div v-for="car in customer.cars" :key="car.id" class="car-chip">
-          <Car :size="14" />
-          <span>{{ car.brand?.toUpperCase() }} {{ car.model }} · {{ car.plate }}</span>
-          <span class="car-year">{{ car.year }}</span>
+          <div class="car-chip-top">
+            <Car :size="14" />
+            <span>{{ car.brand?.toUpperCase() }} {{ car.model }} · {{ car.plate }}</span>
+            <span class="car-year">{{ car.year }}</span>
+          </div>
+          <div class="car-chip-meta">
+            <span>KM: {{ formatKm(car.km) || '—' }}</span>
+            <span>Sonraki bakım: {{ formatShortDate(car.next_service_date) || '—' }}</span>
+          </div>
         </div>
       </section>
 
-      <!-- New maintenance record -->
+      <!-- Maintenance -->
       <section class="section">
         <div class="section-header">
-          <h2 class="section-title">Bakım Geçmişi</h2>
-          <button class="btn-add" @click="showNewRecord = !showNewRecord">+ Ekle</button>
+          <h2 class="section-title">Bakım Raporları</h2>
+          <button class="btn-add" @click="showNew = !showNew">+ Yeni Rapor</button>
         </div>
 
-        <div v-if="showNewRecord" class="record-form">
+        <div v-if="showNew" class="record-form">
           <select v-model="newRecord.carId" class="form-control">
             <option value="">Araç seçin</option>
             <option v-for="car in customer.cars" :key="car.id" :value="car.id">
-              {{ car.brand?.toUpperCase() }} {{ car.model }}
+              {{ car.brand?.toUpperCase() }} {{ car.model }} · {{ car.plate }}
             </option>
           </select>
           <input v-model="newRecord.date" type="date" class="form-control" />
-          <textarea v-model="newRecord.note" class="form-control" placeholder="Not..." rows="2"></textarea>
-          <button class="btn-submit" @click="createRecord" :disabled="!newRecord.carId || !newRecord.date">
-            Kaydet
+          <p v-if="createError" class="err">{{ createError }}</p>
+          <button class="btn-submit" :disabled="!newRecord.carId || !newRecord.date || creating" @click="createRecord">
+            {{ creating ? 'Oluşturuluyor...' : 'Rapor Taslağı Oluştur' }}
           </button>
         </div>
 
         <div v-if="maintenance.loading" class="loading">Yükleniyor...</div>
-
         <div v-else-if="!maintenance.records.length" class="empty-sm">Bakım kaydı yok</div>
 
         <MaintenanceCard
@@ -60,24 +65,9 @@
           :key="record.id"
           :record="record"
           :is-admin="true"
-          @add-item="openAddItem"
-          @remove-item="maintenance.removeItem"
         />
       </section>
     </template>
-
-    <!-- Add item modal -->
-    <div v-if="addItemRecordId" class="modal-overlay" @click.self="addItemRecordId = null">
-      <div class="modal">
-        <h3 class="modal-title">Bakım Kalemi Ekle</h3>
-        <input v-model="newItem.description" class="form-control" placeholder="İşlem açıklaması" />
-        <input v-model.number="newItem.cost" type="number" class="form-control" placeholder="Tutar (₺)" />
-        <div class="modal-actions">
-          <button class="btn-cancel-modal" @click="addItemRecordId = null">Vazgeç</button>
-          <button class="btn-submit" @click="addItem" :disabled="!newItem.description">Ekle</button>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -87,6 +77,7 @@ import { useRoute, useRouter }     from 'vue-router'
 import { ChevronLeft, MessageCircle, Car } from 'lucide-vue-next'
 import { useAdminStore }       from '@/stores/admin'
 import { useMaintenanceStore } from '@/stores/maintenance'
+import { formatKm, formatShortDate } from '@/utils/service'
 import MaintenanceCard from '@/components/maintenance/MaintenanceCard.vue'
 
 const route       = useRoute()
@@ -94,16 +85,16 @@ const router      = useRouter()
 const admin       = useAdminStore()
 const maintenance = useMaintenanceStore()
 
-const customer      = ref(null)
-const loading       = ref(true)
-const showNewRecord = ref(false)
-const addItemRecordId = ref(null)
-const newRecord = ref({ carId: '', date: new Date().toISOString().split('T')[0], note: '' })
-const newItem   = ref({ description: '', cost: null })
+const customer   = ref(null)
+const loading     = ref(true)
+const showNew     = ref(false)
+const creating    = ref(false)
+const createError = ref(null)
+const newRecord   = ref({ carId: '', date: new Date().toISOString().split('T')[0] })
 
-const initials = computed(() => {
-  return (customer.value?.name || 'M').split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
-})
+const initials = computed(() =>
+  (customer.value?.name || 'M').split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+)
 
 onMounted(async () => {
   try {
@@ -115,24 +106,20 @@ onMounted(async () => {
 })
 
 async function createRecord() {
-  await maintenance.createRecord({
-    carId:  newRecord.value.carId,
-    userId: route.params.id,
-    date:   newRecord.value.date,
-    note:   newRecord.value.note,
-  })
-  showNewRecord.value = false
-  newRecord.value = { carId: '', date: new Date().toISOString().split('T')[0], note: '' }
-}
-
-function openAddItem(recordId) {
-  addItemRecordId.value = recordId
-  newItem.value = { description: '', cost: null }
-}
-
-async function addItem() {
-  await maintenance.addItem(addItemRecordId.value, newItem.value)
-  addItemRecordId.value = null
+  creating.value = true
+  createError.value = null
+  try {
+    const rec = await maintenance.createDraft({
+      carId:  newRecord.value.carId,
+      userId: route.params.id,
+      date:   newRecord.value.date,
+    })
+    router.push(`/admin/bakim/${rec.id}`)
+  } catch (e) {
+    createError.value = e.message || 'Oluşturulamadı'
+  } finally {
+    creating.value = false
+  }
 }
 
 function openChat() {
@@ -247,9 +234,6 @@ function openChat() {
 }
 
 .car-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   background: #1a1a1a;
   border: 1px solid rgba(201, 168, 76, 0.12);
   border-radius: 8px;
@@ -258,13 +242,17 @@ function openChat() {
   color: #ccc;
   font-size: 13px;
 }
-
-.car-chip svg { color: #c9a84c; }
-
-.car-year {
-  margin-left: auto;
-  color: #666;
-  font-size: 12px;
+.car-chip-top { display: flex; align-items: center; gap: 8px; }
+.car-chip-top svg { color: #c9a84c; }
+.car-year { margin-left: auto; color: #666; font-size: 12px; }
+.car-chip-meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  font-size: 11px;
+  color: #888;
 }
 
 .record-form {
@@ -301,50 +289,7 @@ function openChat() {
   cursor: pointer;
   font-size: 14px;
 }
-
 .btn-submit:disabled { opacity: 0.6; }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  display: flex;
-  align-items: flex-end;
-  z-index: 200;
-}
-
-.modal {
-  background: #1a1a1a;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  padding: 24px 20px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.modal-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #e5e5e5;
-  margin: 0;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-cancel-modal {
-  flex: 1;
-  padding: 11px;
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px;
-  color: #888;
-  font-weight: 600;
-  cursor: pointer;
-}
+.err { color: #ef4444; font-size: 13px; margin: 0; }
 </style>

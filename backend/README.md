@@ -10,10 +10,11 @@ backend/
 └── migrations/
     ├── 001_sema.sql                 → tüm tablolar + RLS politikaları + varsayılan fiyatlar
     ├── 002_profil_arac_randevu.sql  → profil/araç/randevu alan güncellemeleri
-    └── 003_mesaj_fotograflari.sql   → mesajlara fotoğraf + Storage bucket'ı ve politikaları
+    ├── 003_mesaj_fotograflari.sql   → mesajlara fotoğraf + Storage bucket'ı ve politikaları
+    └── 004_bakim_raporu.sql         → bakım raporu/fatura alanları + parça-marka kataloğu + randevu-bakım bağlantısı
 ```
 
-> Dosyaları **sırayla** (001 → 002 → 003) çalıştırın. Hepsi yeniden çalıştırmaya güvenlidir.
+> Dosyaları **sırayla** (001 → 002 → 003 → 004) çalıştırın. Hepsi yeniden çalıştırmaya güvenlidir.
 
 ## Kurulum (özet)
 
@@ -33,9 +34,15 @@ Adım adım tam kurulum (admin hesabı oluşturma dahil) için kök dizindeki **
 | `conversations` | Kullanıcı ↔ admin konuşmaları (kullanıcı başına 1 adet) |
 | `messages` | Sohbet mesajları (Realtime ile anlık iletilir); `content` metin, `image_url` fotoğraf bağlantısı |
 | Storage `message-images` | Sohbette paylaşılan fotoğraflar (003 ile oluşturulur; `conversation_id/…` klasör yapısı + RLS) |
-| `maintenance_records` | Bakım/servis kayıtları (sadece admin ekler) |
-| `maintenance_items` | Bakım kayıtlarındaki işlem kalemleri ve tutarları |
+| `maintenance_records` | Bakım/servis kayıtları + rapor/fatura alanları (durum: `draft` / `finalized`, `report_no`, KDV/iskonto/toplamlar, kesinleşme anlık kopyası, `appointment_id` bağlantısı) — sadece admin ekler |
+| `maintenance_items` | Bakım kayıtlarındaki kalemler (marka, birim, miktar, birim fiyat, satır tutarı, sıra) |
+| `part_catalog` / `brand_catalog` | Admin'in girdiği parça/işlem ve marka adları — sonraki raporlarda aranabilir öneri (yalnız admin) |
 | `service_prices` | Hizmet fiyat aralıkları (herkes okur, sadece admin günceller) |
+
+Onaylı bir randevu, tarihi geçince admin panelinden "Rapor Oluştur" ile bir
+`maintenance_records` taslağına dönüşür (`appointment_id` ile bağlanır); rapor
+kesinleşince randevu `completed` olur, aracın `km` ve `next_service_date/km`
+bilgileri güncellenir.
 
 ## Güvenlik modeli
 

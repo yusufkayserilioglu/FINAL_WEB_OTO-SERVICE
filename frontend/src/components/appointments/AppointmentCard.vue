@@ -18,10 +18,20 @@
     <div v-if="showActions && appointment.status === 'pending'" class="appt-footer">
       <button class="btn-cancel" @click="$emit('cancel', appointment.id)">İptal Et</button>
     </div>
+    <!-- Kullanıcı: tamamlanan servisin raporu -->
+    <div v-if="showActions && appointment.status === 'completed' && linkedRecord" class="appt-footer">
+      <RouterLink class="btn-report" :to="`/bakim/${linkedRecord.id}`">Servis raporunu gör →</RouterLink>
+    </div>
     <!-- Admin actions -->
     <div v-if="isAdmin && appointment.status === 'pending'" class="appt-footer">
       <button class="btn-confirm" @click="$emit('confirm', appointment.id)">Onayla</button>
       <button class="btn-cancel"  @click="$emit('cancel', appointment.id)">İptal</button>
+    </div>
+    <div v-if="isAdmin && (appointment.status === 'confirmed' || appointment.status === 'completed')" class="appt-footer">
+      <button class="btn-confirm" @click="$emit('report', appointment)">
+        {{ linkedRecord ? 'Raporu Aç' : 'Rapor Oluştur' }}
+      </button>
+      <button v-if="appointment.status === 'confirmed'" class="btn-cancel" @click="$emit('cancel', appointment.id)">İptal</button>
     </div>
     <!-- Admin customer info -->
     <div v-if="isAdmin && appointment.profiles" class="customer-row">
@@ -33,6 +43,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { Calendar, Car } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -41,10 +52,16 @@ const props = defineProps({
   isAdmin:     { type: Boolean, default: false },
 })
 
-defineEmits(['cancel', 'confirm'])
+defineEmits(['cancel', 'confirm', 'report'])
 
-const statusMap = { pending: 'Bekliyor', confirmed: 'Onaylandı', cancelled: 'İptal' }
+const statusMap = { pending: 'Bekliyor', confirmed: 'Onaylandı', cancelled: 'İptal', completed: 'Tamamlandı' }
 const statusLabel = computed(() => statusMap[props.appointment.status] || props.appointment.status)
+
+const linkedRecord = computed(() => {
+  const mr = props.appointment.maintenance_records
+  if (!mr) return null
+  return Array.isArray(mr) ? (mr[0] || null) : mr
+})
 
 const formattedDate = computed(() => {
   return new Date(props.appointment.date).toLocaleDateString('tr-TR', {
@@ -86,6 +103,7 @@ const formattedDate = computed(() => {
 .status.pending   { background: rgba(234, 179, 8, 0.2);  color: #eab308; }
 .status.confirmed { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
 .status.cancelled { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.status.completed { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
 
 .info-row {
   display: flex;
@@ -133,6 +151,19 @@ const formattedDate = computed(() => {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.btn-report {
+  flex: 1;
+  text-align: center;
+  padding: 8px;
+  background: rgba(201, 168, 76, 0.12);
+  color: #c9a84c;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .customer-row {

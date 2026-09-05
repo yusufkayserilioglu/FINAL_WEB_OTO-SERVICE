@@ -1,0 +1,22 @@
+Yapılanlar
+1. DB — backend/migrations/004_bakim_raporu.sql (YENİ — senin çalıştırman gerek)
+Supabase → SQL Editor'de 001→002→003→004 sırayla çalıştır. Ekledikleri:
+
+part_catalog + brand_catalog — admin'in girdiği kalem/marka adları burada birikir, aranabilir öneri olur (yaygın değerlerle seed'li: Motor Yağı/litre, SHELL, LEMFÖRDER…)
+maintenance_items → brand, unit, quantity, unit_price, sort_order (eski cost = satır tutarı olarak kalıyor)
+maintenance_records → status (draft/finalized, varsayılan finalized → eski kayıtlar görünür kalır), report_no, discount, vat_rate, subtotal/vat_amount/grand_total, kesinleşme anlık kopyası (müşteri/araç), appointment_id
+appointments.status → completed eklendi
+cars → next_service_date, next_service_km (sonraki bakım artık aracın üstünde, her yerde gösterilir)
+RPC: upsert_part_catalog, upsert_brand_catalog, next_report_no
+2. Frontend
+Deps kuruldu: jspdf, html2canvas-pro (dinamik import — ana pakete girmiyor)
+Rapor belgesi MaintenanceReportDoc.vue — fotoğraftaki beyaz kâğıt düzeni. Üstteki 6 marka logosu şimdilik yer tutucu (kesikli kutu + marka adı)
+Admin rapor paneli AdminMaintenanceReportView.vue — sol form / sağ canlı önizleme. Kalem ve marka PartCombobox ile katalogdan aranır; seçilince birim/marka/son fiyat otomatik dolar. "Taslağı Kaydet" · "PDF İndir" · "Raporu Kesinleştir"
+Kesinleştirince: rapor no atanır, aracın KM'si + önerilen sonraki bakım güncellenir (Dashboard/Profil'e yansır), bağlı randevu "Tamamlandı" olur, katalog sayaçları artar
+Kullanıcı: Bakım Geçmişi'nde kesinleşmiş kayıtta "Raporu Görüntüle / PDF" → MaintenanceReportView.vue. Taslaklar kullanıcıya görünmez
+Randevu-bakım: AdminAppointmentsView.vue yeni "Serviste" sekmesi (onaylı + tarihi geçmiş) → "Rapor Oluştur" randevudan taslak açar; "Tamamlandı" sekmesi; kullanıcı tarafında tamamlanan randevuda "Servis raporunu gör" linki
+stores/maintenance.js baştan yazıldı, stores/catalog.js yeni
+Senin yapman gerekenler
+Migration 004'ü çalıştır (yukarıda). Sonra embed hataları olursa Supabase'de "Reload schema".
+Test: admin → müşteri → + Yeni Rapor → kalem ekle (combobox'a "mot" yaz) → miktar/fiyat → PDF İndir → Kesinleştir. Sonra o kullanıcıyla gir → Bakım → rapor görünüyor mu.
+Logoları getirince: dosyaları frontend/src/assets/report/ içine koy, config/report.js reportBrandLogos[].src doldur — başka yer değişmez. Firma bilgileri de aynı dosyada (reportCompany).
