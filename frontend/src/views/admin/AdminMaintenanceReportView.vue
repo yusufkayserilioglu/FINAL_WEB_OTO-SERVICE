@@ -77,17 +77,19 @@
 
           <p v-if="!items.length" class="empty">Henüz kalem yok.</p>
 
-          <ReportItemRow
-            v-for="(it, i) in items"
-            :key="it._k"
-            :item="it"
-            :index="i"
-            :parts="catalog.parts"
-            :brands="catalog.brands"
-            :disabled="readOnly"
-            @remove="removeRow(i)"
-            @move="d => moveRow(i, d)"
-          />
+          <div ref="itemsListEl">
+            <ReportItemRow
+              v-for="(it, i) in items"
+              :key="it._k"
+              :item="it"
+              :index="i"
+              :parts="catalog.parts"
+              :brands="catalog.brands"
+              :disabled="readOnly"
+              @remove="removeRow(i)"
+              @move="d => moveRow(i, d)"
+            />
+          </div>
 
           <div class="row2 totals-fields" v-if="!readOnly">
             <div class="field">
@@ -129,14 +131,26 @@
 
       <!-- ── SAĞ: canlı önizleme ── -->
       <div class="preview-col">
-        <p class="preview-label">Önizleme</p>
-        <div class="preview-frame">
-          <MaintenanceReportDoc
-            ref="docRef"
-            :record="previewRecord"
-            :customer="{ name: customerName, phone: customerPhone }"
-            :car="selectedCar"
-          />
+        <div class="preview-head">
+          <p class="preview-label">Önizleme</p>
+          <div class="zoom-bar">
+            <button class="zbtn" :disabled="zoom <= 0.4" @click="zoomOut">−</button>
+            <span class="zpct">{{ Math.round(scale * 100) }}%</span>
+            <button class="zbtn" :disabled="zoom >= 3" @click="zoomIn">+</button>
+            <button v-if="!isFit" class="zbtn zfit" @click="resetZoom">Sığdır</button>
+          </div>
+        </div>
+        <div class="preview-frame" :ref="bindViewport">
+          <div class="stage" :style="{ width: stageWidth + 'px', height: stageHeight ? stageHeight + 'px' : 'auto' }">
+            <div class="scaler" :style="{ transform: `scale(${scale})` }">
+              <MaintenanceReportDoc
+                ref="docRef"
+                :record="previewRecord"
+                :customer="{ name: customerName, phone: customerPhone }"
+                :car="selectedCar"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -162,13 +176,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
 import { useMaintenanceStore } from '@/stores/maintenance'
 import { useCatalogStore }     from '@/stores/catalog'
 import { useAdminStore }       from '@/stores/admin'
 import { useReportPdf }        from '@/composables/useReportPdf'
+import { useFitZoom }          from '@/composables/useFitZoom'
 import { computeTotals, formatTRY, num, reportNoLabel, slugForFilename } from '@/utils/report'
 import { partUnits } from '@/config/report'
 import MaintenanceReportDoc from '@/components/report/MaintenanceReportDoc.vue'
@@ -180,6 +195,10 @@ const maintenance = useMaintenanceStore()
 const catalog     = useCatalogStore()
 const admin       = useAdminStore()
 const pdf         = useReportPdf()
+const {
+  bindViewport, attach, scale, stageWidth, stageHeight, zoom, isFit,
+  zoomIn, zoomOut, resetZoom, captureAtNaturalScale,
+} = useFitZoom(794)
 
 const units = partUnits
 
@@ -193,6 +212,7 @@ const showFinalize = ref(false)
 const rec     = ref(null)
 const customer = ref(null)
 const docRef  = ref(null)
+const itemsListEl = ref(null)
 
 let keySeq = 0
 const items = ref([])
@@ -287,7 +307,21 @@ onMounted(async () => {
   }
 })
 
-function addRow()          { items.value.push(toLocalItem()) }
+// Önizleme belgesi DOM'a girdiği anda ölçüme bağlanır. onMounted içinde elle
+// çağırmak kırılgandı: o sırada `loading` hâlâ true olduğu için önizleme henüz
+// render edilmemiş oluyor, yükseklik 0 ölçülüp sahne çöküyordu.
+watch(docRef, inst => attach(inst?.root), { immediate: true, flush: 'post' })
+
+function addRow() {
+  items.value.push(toLocalItem())
+  nextTick(() => {
+    const rows = itemsListEl.value?.querySelectorAll('.item-row')
+    const last = rows?.[rows.length - 1]
+    if (!last) return
+    last.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    last.querySelector('.f-name input')?.focus()
+  })
+}
 function removeRow(i)       { items.value.splice(i, 1) }
 function moveRow(i, dir) {
   const j = i + dir
@@ -352,7 +386,7 @@ async function removeReport() {
 async function downloadPdf() {
   const name = `Bakim-Raporu-${rec.value?.report_no || 'taslak'}-${slugForFilename(selectedCar.value?.plate)}.pdf`
   try {
-    await pdf.download(docRef.value?.root, name)
+    await captureAtNaturalScale(() => pdf.download(docRef.value?.root, name))
   } catch (e) {
     actionError.value = e.message || 'PDF oluşturulamadı'
   }
@@ -396,7 +430,7 @@ function goBack() {
 .body { display: flex; flex-direction: column; gap: 20px; }
 @media (min-width: 1200px) {
   .body { flex-direction: row; align-items: flex-start; }
-  .form-col { width: 460px; flex-shrink: 0; }
+  .form-col { width: 500px; flex-shrink: 0; }
   .preview-col { flex: 1; min-width: 0; position: sticky; top: 16px; }
 }
 
@@ -458,7 +492,43 @@ function goBack() {
 .btn.ghost { background: transparent; border-color: rgba(255,255,255,0.14); color: #cfcfcf; }
 .btn.danger { background: transparent; border-color: rgba(239,68,68,0.3); color: #ef4444; }
 
-.preview-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin: 0 0 8px; }
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.preview-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #666; margin: 0; }
+
+.zoom-bar { display: flex; align-items: center; gap: 8px; }
+.zbtn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: #1f1f1f;
+  color: #e5e5e5;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.zbtn:disabled { opacity: 0.4; cursor: default; }
+.zbtn.zfit {
+  width: auto;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #c9a84c;
+  border-color: rgba(201,168,76,0.35);
+  background: rgba(201,168,76,0.08);
+}
+.zpct { font-size: 11px; color: #ccc; min-width: 36px; text-align: center; }
+
 .preview-frame {
   overflow: auto;
   background: #3a3a3a;
@@ -466,6 +536,8 @@ function goBack() {
   padding: 16px;
   max-height: calc(100vh - 120px);
 }
+.stage { position: relative; margin: 0 auto; overflow: hidden; }
+.scaler { transform-origin: top left; width: 794px; }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
 .modal { background: #1a1a1a; border: 1px solid rgba(201,168,76,0.2); border-radius: 16px; padding: 22px; max-width: 420px; width: 100%; }

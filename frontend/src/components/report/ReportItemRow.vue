@@ -3,61 +3,65 @@
     <div class="rn">{{ index + 1 }}</div>
 
     <div class="grid">
-      <label class="f f-brand">
-        <span class="lbl">Marka</span>
-        <PartCombobox
-          v-model="item.brand"
-          :items="brands"
-          :disabled="disabled"
-          placeholder="—"
-        />
-      </label>
+      <div class="grid-row row-top">
+        <label class="f f-brand">
+          <span class="lbl">Marka</span>
+          <PartCombobox
+            v-model="item.brand"
+            :items="brands"
+            :disabled="disabled"
+            placeholder="—"
+          />
+        </label>
 
-      <label class="f f-name">
-        <span class="lbl">Stok adı</span>
-        <PartCombobox
-          v-model="item.description"
-          :items="parts"
-          :disabled="disabled"
-          placeholder="Kalem adı"
-          @select="onPickPart"
-        />
-      </label>
+        <label class="f f-name">
+          <span class="lbl">Stok adı</span>
+          <PartCombobox
+            v-model="item.description"
+            :items="parts"
+            :disabled="disabled"
+            placeholder="Kalem adı"
+            @select="onPickPart"
+          />
+        </label>
+      </div>
 
-      <label class="f f-unit">
-        <span class="lbl">Birim</span>
-        <input
-          v-model="item.unit"
-          :disabled="disabled"
-          class="inp"
-          list="report-units"
-          placeholder="adet"
-        />
-      </label>
+      <div class="grid-row row-bottom">
+        <label class="f f-unit">
+          <span class="lbl">Birim</span>
+          <input
+            v-model="item.unit"
+            :disabled="disabled"
+            class="inp"
+            list="report-units"
+            placeholder="adet"
+          />
+        </label>
 
-      <label class="f f-qty">
-        <span class="lbl">Miktar</span>
-        <input
-          v-model="item.quantity"
-          :disabled="disabled"
-          type="number" min="0" step="0.01" inputmode="decimal"
-          class="inp ta-r"
-        />
-      </label>
+        <label class="f f-qty">
+          <span class="lbl">Miktar</span>
+          <input
+            v-model="item.quantity"
+            :disabled="disabled"
+            type="number" min="0" step="0.01" inputmode="decimal"
+            class="inp ta-r"
+          />
+        </label>
 
-      <label class="f f-price">
-        <span class="lbl">Birim fiyat ₺</span>
-        <input
-          v-model="item.unit_price"
-          :disabled="disabled"
-          type="number" min="0" step="0.01" inputmode="decimal"
-          class="inp ta-r"
-        />
-      </label>
+        <label class="f f-price">
+          <span class="lbl">Birim fiyat ₺</span>
+          <input
+            v-model="item.unit_price"
+            :disabled="disabled"
+            type="number" min="0" step="0.01" inputmode="decimal"
+            class="inp ta-r"
+          />
+        </label>
 
-      <div class="f f-total">
-        <span class="lbl">Tutar</span>
-        <div class="total-val">{{ money(line) }}</div>
+        <div class="f f-total">
+          <span class="lbl">Tutar</span>
+          <div class="total-val">{{ money(line) }}</div>
+        </div>
       </div>
     </div>
 
@@ -105,7 +109,7 @@ function onPickPart(row) {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 10px 0;
+  padding: 9px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 .item-row.disabled { opacity: 0.75; }
@@ -119,16 +123,30 @@ function onPickPart(row) {
   padding-top: 26px;
 }
 
+/* Grid, viewport genişliği yerine kendi kapsayıcısının genişliğine göre
+   sarar (flex-wrap) — böylece dar admin form sütununda da geniş ekranda da
+   alanlar birbirine girmez, gerektiğinde ikinci satıra düşer. */
 .grid {
   flex: 1;
-  display: grid;
-  grid-template-columns: 1.1fr 2fr 0.9fr 0.8fr 1fr 1fr;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
-@media (max-width: 900px) {
-  .grid { grid-template-columns: 1fr 1fr; }
-  .f-name { grid-column: 1 / -1; }
+.grid-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
+.row-top .f-brand { flex: 1 1 140px; min-width: 110px; }
+.row-top .f-name  { flex: 3 1 220px; min-width: 170px; }
+
+/* min-width'ler, dört alanın 500px'lik admin form sütununda tek satıra
+   sığacağı şekilde ayarlı; daha dar kapsayıcıda kendiliğinden sarar. */
+.row-bottom .f-unit  { flex: 1 1 76px;  min-width: 68px; }
+.row-bottom .f-qty   { flex: 1 1 82px;  min-width: 74px; }
+.row-bottom .f-price { flex: 1 1 115px; min-width: 100px; }
+.row-bottom .f-total { flex: 1 1 105px; min-width: 92px; }
 
 .f { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .lbl {
