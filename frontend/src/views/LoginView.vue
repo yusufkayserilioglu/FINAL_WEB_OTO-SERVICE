@@ -323,9 +323,8 @@ function backToPhone() {
   error.value = ''
 }
 
+// redirect başka role ait bir paneli gösteriyorsa router guard kişiyi kendi paneline çevirir
 function redirectAfterLogin() {
-  const isAdmin  = auth.currentProfile?.role === 'admin'
-  const redirect = route.query.redirect ?? (isAdmin ? '/admin' : '/dashboard')
-  router.push(redirect)
+  router.push(route.query.redirect ?? auth.panelPath)
 }
 </script>

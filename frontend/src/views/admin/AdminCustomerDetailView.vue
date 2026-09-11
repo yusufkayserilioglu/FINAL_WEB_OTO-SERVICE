@@ -11,8 +11,12 @@
       <div class="profile-card">
         <div class="profile-avatar">{{ initials }}</div>
         <div class="profile-info">
-          <h1 class="profile-name">{{ customer.name }}</h1>
+          <h1 class="profile-name">
+            {{ customer.name }}
+            <span v-if="customer.is_walk_in" class="walk-in">Kayıtsız</span>
+          </h1>
           <p class="profile-phone">{{ customer.phone || 'Telefon yok' }}</p>
+          <p v-if="customer.notes" class="profile-note">{{ customer.notes }}</p>
         </div>
         <button class="msg-btn" @click="openChat">
           <MessageCircle :size="18" />
@@ -21,7 +25,34 @@
 
       <!-- Cars -->
       <section class="section">
-        <h2 class="section-title">Araçlar</h2>
+        <div class="section-header">
+          <h2 class="section-title">Araçlar</h2>
+          <button class="btn-add" @click="showCarForm = !showCarForm">+ Araç Ekle</button>
+        </div>
+
+        <div v-if="showCarForm" class="record-form">
+          <select v-model="newCar.brand" class="form-control">
+            <option value="">Marka seçin</option>
+            <option v-for="b in brandOptions" :key="b.value" :value="b.value">{{ b.label }}</option>
+          </select>
+          <div class="form-grid">
+            <input v-model="newCar.model" placeholder="Model" class="form-control" />
+            <input v-model="newCar.year" type="number" placeholder="Yıl" class="form-control" />
+          </div>
+          <div class="form-grid">
+            <input v-model="newCar.plate" placeholder="Plaka" class="form-control" />
+            <input v-model="newCar.km" type="number" placeholder="Kilometre" class="form-control" />
+          </div>
+          <p v-if="carError" class="err">{{ carError }}</p>
+          <button
+            class="btn-submit"
+            :disabled="!newCar.brand || !newCar.plate.trim() || savingCar"
+            @click="addCar"
+          >
+            {{ savingCar ? 'Ekleniyor...' : 'Aracı Ekle' }}
+          </button>
+        </div>
+
         <div v-if="!customer.cars?.length" class="empty-sm">Araç yok</div>
         <div v-for="car in customer.cars" :key="car.id" class="car-chip">
           <div class="car-chip-top">
@@ -78,6 +109,7 @@ import { ChevronLeft, MessageCircle, Car } from 'lucide-vue-next'
 import { useAdminStore }       from '@/stores/admin'
 import { useMaintenanceStore } from '@/stores/maintenance'
 import { formatKm, formatShortDate } from '@/utils/service'
+import { brandOptions } from '@/data/brands'
 import MaintenanceCard from '@/components/maintenance/MaintenanceCard.vue'
 
 const route       = useRoute()
@@ -91,6 +123,12 @@ const showNew     = ref(false)
 const creating    = ref(false)
 const createError = ref(null)
 const newRecord   = ref({ carId: '', date: new Date().toISOString().split('T')[0] })
+
+// Kayıtsız müşterinin aracını admin ekler (bakım raporu araç ister)
+const showCarForm = ref(false)
+const savingCar   = ref(false)
+const carError    = ref(null)
+const newCar      = ref({ brand: '', model: '', year: '', plate: '', km: '' })
 
 const initials = computed(() =>
   (customer.value?.name || 'M').split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
@@ -119,6 +157,22 @@ async function createRecord() {
     createError.value = e.message || 'Oluşturulamadı'
   } finally {
     creating.value = false
+  }
+}
+
+async function addCar() {
+  savingCar.value = true
+  carError.value  = null
+  try {
+    const car = await admin.addCarForCustomer(route.params.id, newCar.value)
+    customer.value.cars = [...(customer.value.cars || []), car]
+    newCar.value = { brand: '', model: '', year: '', plate: '', km: '' }
+    showCarForm.value = false
+    newRecord.value.carId = car.id     // yeni araç rapor formunda hazır gelsin
+  } catch (e) {
+    carError.value = e.message || 'Araç eklenemedi'
+  } finally {
+    savingCar.value = false
   }
 }
 
@@ -292,4 +346,30 @@ function openChat() {
 .btn-submit:disabled { opacity: 0.6; }
 
 .err { color: #ef4444; font-size: 13px; margin: 0; }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.walk-in {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: rgba(201, 168, 76, 0.15);
+  color: #c9a84c;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.profile-note {
+  font-size: 12px;
+  color: #777;
+  margin: 4px 0 0;
+  font-style: italic;
+}
 </style>

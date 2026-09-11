@@ -96,20 +96,50 @@
           <p class="text-gray-500 text-xs mt-0.5">Randevuları onaylayın veya iptal edin</p>
         </div>
       </RouterLink>
+
+      <button
+        type="button"
+        class="flex items-center gap-4 rounded-2xl border border-white/5 p-5 hover:border-gold/30 transition-all text-left"
+        style="background: rgba(255,255,255,0.02);"
+        @click="showNewCustomer = true"
+      >
+        <div class="w-11 h-11 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0">
+          <UserPlus :size="18" class="text-gold" />
+        </div>
+        <div>
+          <p class="text-white font-semibold text-sm">Kayıtsız Müşteri Ekle</p>
+          <p class="text-gray-500 text-xs mt-0.5">Üye olmayan müşteriyi anında kaydedin</p>
+        </div>
+      </button>
     </div>
+
+    <!-- Randevu takvimi -->
+    <div class="mt-8">
+      <AppointmentCalendar @changed="loadStats" />
+    </div>
+
+    <NewCustomerModal
+      v-if="showNewCustomer"
+      @close="showNewCustomer = false"
+      @created="goToCustomer"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { RouterLink } from 'vue-router'
-import { Users, Calendar, MessageCircle, BadgeDollarSign } from 'lucide-vue-next'
+import { RouterLink, useRouter } from 'vue-router'
+import { Users, Calendar, MessageCircle, BadgeDollarSign, UserPlus } from 'lucide-vue-next'
 import { supabase } from '@/lib/supabase'
+import AppointmentCalendar from '@/components/admin/AppointmentCalendar.vue'
+import NewCustomerModal    from '@/components/admin/NewCustomerModal.vue'
 
+const router  = useRouter()
 const loading = ref(true)
 const stats   = ref({ customers: 0, pendingAppointments: 0, unreadMessages: 0 })
+const showNewCustomer = ref(false)
 
-onMounted(async () => {
+async function loadStats() {
   try {
     const [customersRes, apptRes, convRes] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user'),
@@ -124,5 +154,12 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadStats)
+
+function goToCustomer(id) {
+  showNewCustomer.value = false
+  router.push(`/admin/musteri/${id}`)
+}
 </script>

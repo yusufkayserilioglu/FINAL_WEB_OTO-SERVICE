@@ -33,6 +33,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => currentUser.value !== null)
   const isAdmin    = computed(() => currentProfile.value?.role === 'admin')
+  // Panel ayrımı: profili henüz olmayan oturum da müşteri ('user') sayılır
+  const role       = computed(() => (isAdmin.value ? 'admin' : 'user'))
+  // Kişinin kendi paneli — yönetici müşteri paneline, müşteri yönetim paneline giremez
+  const panelPath  = computed(() => (isAdmin.value ? '/admin' : '/dashboard'))
   const hasProfile = computed(() => currentProfile.value !== null)
   const userName   = computed(() => currentProfile.value?.name ?? currentUser.value?.email ?? '')
   const userEmail  = computed(() => currentUser.value?.email ?? currentProfile.value?.email ?? '')
@@ -118,15 +122,25 @@ export const useAuthStore = defineStore('auth', () => {
   async function ensureProfile({ name }) {
     if (!currentUser.value) throw new Error('Oturum bulunamadı')
     if (currentProfile.value) return currentProfile.value
+    const phone = currentUser.value.phone ? normalizePhone(currentUser.value.phone) : null
     const { error } = await supabase.from('profiles').insert({
       id:    currentUser.value.id,
       name:  name.trim(),
-      phone: currentUser.value.phone ? normalizePhone(currentUser.value.phone) : null,
+      phone,
       email: currentUser.value.email ?? null,
     })
     if (error) throw new Error(error.message)
+    await claimWalkInRecords(phone)
     await loadProfile()
     return currentProfile.value
+  }
+
+  // Müşteri daha önce servise "kayıtsız müşteri" olarak geldiyse, admin'in
+  // o kayda girdiği araç / randevu / bakım raporları bu hesaba taşınır.
+  async function claimWalkInRecords(phone) {
+    if (!phone) return
+    // Devralma başarısız olsa da (ör. migrasyon çalıştırılmadıysa) üyelik tamamlanır
+    await supabase.rpc('claim_walk_in_profile', { p_phone: phone })
   }
 
   // ─── Profil güncellemeleri ────────────────────────────────────────────────
@@ -189,9 +203,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     currentUser, currentProfile, loading, ready,
-    isLoggedIn, isAdmin, hasProfile, userName, userEmail, userPhone,
+    isLoggedIn, isAdmin, role, panelPath, hasProfile, userName, userEmail, userPhone,
     init, ensureReady, loadProfile,
-    sendPhoneOtp, verifyPhoneOtp, ensureProfile,
+    sendPhoneOtp, verifyPhoneOtp, ensureProfile, claimWalkInRecords,
     updateProfile, requestEmailChange, requestPhoneChange, confirmPhoneChange,
     login, logout,
   }

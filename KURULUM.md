@@ -25,6 +25,8 @@ lions-mechanic/
    1. `001_sema.sql` — tablolar, RLS güvenlik politikaları, varsayılan hizmet fiyatları ve Realtime ayarı.
    2. `002_profil_arac_randevu.sql` — profil/araç/randevu alan güncellemeleri.
    3. `003_mesaj_fotograflari.sql` — mesajlara fotoğraf desteği; `message-images` Storage bucket'ını ve erişim politikalarını **otomatik oluşturur** (ayrıca panelden bir şey açmanıza gerek yok).
+   4. `004_bakim_raporu.sql` — bakım raporu/fatura alanları, parça-marka kataloğu ve randevu-bakım bağlantısı.
+   5. `005_takvim_ve_misafir_musteri.sql` — randevu takvimi (aynı saat çakışma kontrolü) ve kayıtsız (misafir) müşteri kaydı.
    - Hepsi yeniden çalıştırmaya güvenlidir.
 4. Sol menü → **Project Settings → API**:
    - `Project URL` değerini kopyalayın.
@@ -115,4 +117,5 @@ Fiyatlar `service_prices` tablosunda tutulur; admin `/admin/fiyatlar`'dan günce
 | Admin sayfası dashboard'a atıyor | İlgili kullanıcının `profiles.role` değeri `admin` değil. 4. adımdaki SQL'i çalıştırın ve yeniden giriş yapın. |
 | Mesajlar anlık düşmüyor | SQL dosyasını tamamen çalıştırdığınızdan emin olun (sondaki Realtime bölümü `messages` tablosunu yayına ekler). Dashboard → Database → Replication'dan da kontrol edebilirsiniz. |
 | Fotoğraf gönderilemiyor / "Fotoğraf yüklenemedi" | `003_mesaj_fotograflari.sql` çalıştırılmamış. Dashboard → Storage'da `message-images` bucket'ı ve Storage politikaları bu dosyayla oluşur. |
+| Takvim boş / "Veritabanı fonksiyonu bulunamadı" / kayıtsız müşteri eklenemiyor | `005_takvim_ve_misafir_musteri.sql` çalıştırılmamış. |
 | Fiyatlar sayfası boş | `001_sema.sql` içindeki varsayılan fiyat INSERT'leri çalışmamış olabilir; SQL Editor'de o bölümü tekrar çalıştırın. |

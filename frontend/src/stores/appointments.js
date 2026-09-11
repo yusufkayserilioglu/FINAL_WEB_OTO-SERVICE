@@ -91,6 +91,30 @@ export const useAppointmentsStore = defineStore('appointments', () => {
     if (idx !== -1) appointments.value[idx].status = status
   }
 
+  // Admin: takvim için tarih aralığındaki randevular (store durumunu bozmaz)
+  async function fetchRange(fromDate, toDate) {
+    const { data, error: err } = await supabase
+      .from('appointments')
+      .select('*, cars(brand, model, plate), profiles(name, phone, is_walk_in), maintenance_records(id, status)')
+      .gte('date', fromDate)
+      .lte('date', toDate)
+      .order('date', { ascending: true })
+      .order('time', { ascending: true })
+    if (err) { error.value = err.message; throw err }
+    return data || []
+  }
+
+  // Admin: aynı gün + aynı saatteki diğer randevular (onaylamadan önce sorulur)
+  async function fetchSlotConflicts(appt) {
+    const { data, error: err } = await supabase.rpc('appointments_at_slot', {
+      p_date:       appt.date,
+      p_time:       appt.time,
+      p_exclude_id: appt.id,
+    })
+    if (err) { error.value = err.message; throw err }
+    return data || []
+  }
+
   // Admin: onaylı randevudan bakım raporu taslağı aç (varsa mevcudu döndür)
   async function convertToMaintenance(appt) {
     const existing = firstRecord(appt)
@@ -115,6 +139,7 @@ export const useAppointmentsStore = defineStore('appointments', () => {
     appointments, loading, error,
     fetchAppointments, createAppointment, cancelAppointment,
     fetchAllAppointments, updateStatus, convertToMaintenance,
+    fetchRange, fetchSlotConflicts,
   }
 })
 

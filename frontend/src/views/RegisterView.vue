@@ -190,7 +190,7 @@ async function handleVerifyCode() {
   try {
     await auth.verifyPhoneOtp(sentTo.value, code.value)
     await auth.ensureProfile({ name: name.value })
-    router.push('/dashboard')
+    router.push(auth.panelPath)
   } catch (e) {
     error.value = e.message
   } finally {

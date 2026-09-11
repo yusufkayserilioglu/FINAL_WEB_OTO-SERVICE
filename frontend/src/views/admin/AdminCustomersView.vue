@@ -1,13 +1,18 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h1 class="page-title">Müşteriler</h1>
-      <span class="count">{{ admin.customers.length }} müşteri</span>
+      <div>
+        <h1 class="page-title">Müşteriler</h1>
+        <span class="count">{{ admin.customers.length }} müşteri</span>
+      </div>
+      <button class="btn-new" @click="showNew = true">
+        <UserPlus :size="15" /> Kayıtsız Müşteri
+      </button>
     </div>
 
     <div class="search-bar">
       <Search :size="16" class="search-icon" />
-      <input v-model="searchQuery" type="text" placeholder="İsim veya telefon ara..." class="search-input" />
+      <input v-model="searchQuery" type="text" placeholder="İsim, telefon veya plaka ara..." class="search-input" />
     </div>
 
     <div v-if="admin.loading" class="loading">Yükleniyor...</div>
@@ -26,26 +31,42 @@
       />
       <p v-if="filteredCustomers.length === 0" class="no-results">Eşleşen müşteri bulunamadı</p>
     </div>
+
+    <NewCustomerModal
+      v-if="showNew"
+      @close="showNew = false"
+      @created="goToCustomer"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Search, Users } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { Search, Users, UserPlus } from 'lucide-vue-next'
 import { useAdminStore } from '@/stores/admin'
-import CustomerCard from '@/components/admin/CustomerCard.vue'
+import CustomerCard    from '@/components/admin/CustomerCard.vue'
+import NewCustomerModal from '@/components/admin/NewCustomerModal.vue'
 
 const admin       = useAdminStore()
+const router      = useRouter()
 const searchQuery = ref('')
+const showNew     = ref(false)
 
 onMounted(() => admin.fetchCustomers())
+
+function goToCustomer(id) {
+  showNew.value = false
+  router.push(`/admin/musteri/${id}`)
+}
 
 const filteredCustomers = computed(() => {
   const q = searchQuery.value.toLowerCase()
   if (!q) return admin.customers
   return admin.customers.filter(c =>
     c.name?.toLowerCase().includes(q) ||
-    c.phone?.toLowerCase().includes(q)
+    c.phone?.toLowerCase().includes(q) ||
+    (c.cars || []).some(car => car.plate?.toLowerCase().includes(q))
   )
 })
 </script>
@@ -62,7 +83,24 @@ const filteredCustomers = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin-bottom: 16px;
+}
+
+.btn-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #c9a84c, #e0bc6e);
+  color: #080808;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .page-title {

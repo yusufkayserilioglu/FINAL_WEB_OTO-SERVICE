@@ -10,12 +10,12 @@ const routes = [
   { path: '/kayit',     name: 'register', component: () => import('@/views/RegisterView.vue') },
   { path: '/fiyatlar',  name: 'pricing',  component: () => import('@/views/PricingView.vue') },
 
-  // ── Kullanıcı paneli ────────────────────────────────────────────────────
+  // ── Kullanıcı paneli (yalnızca müşteriler) ──────────────────────────────
   {
     path:      '/panel',
     component: () => import('@/components/layout/PanelLayout.vue'),
     redirect:  '/dashboard',
-    meta:      { requiresAuth: true, panel: true },
+    meta:      { requiresAuth: true, role: 'user', panel: true },
     children: [
       { path: '/dashboard',  name: 'dashboard',    component: () => import('@/views/DashboardView.vue') },
       { path: '/profil',     name: 'profile',      component: () => import('@/views/ProfileView.vue') },
@@ -26,11 +26,11 @@ const routes = [
     ],
   },
 
-  // ── Admin paneli ────────────────────────────────────────────────────────
+  // ── Admin paneli (yalnızca yöneticiler) ─────────────────────────────────
   {
     path:      '/admin',
     component: () => import('@/components/layout/AdminLayout.vue'),
-    meta:      { requiresAuth: true, requiresAdmin: true, panel: true },
+    meta:      { requiresAuth: true, role: 'admin', panel: true },
     children: [
       { path: '',              name: 'admin-home',            component: () => import('@/views/admin/AdminHomeView.vue') },
       { path: 'randevular',    name: 'admin-appointments',    component: () => import('@/views/admin/AdminAppointmentsView.vue') },
@@ -55,6 +55,11 @@ const router = createRouter({
   },
 })
 
+// Rota başka bir role ait panelde mi? (yönetici → müşteri paneli, müşteri → yönetim paneli)
+export function isWrongPanel(route, auth) {
+  return !!route.meta.role && route.meta.role !== auth.role
+}
+
 router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
 
@@ -66,13 +71,14 @@ router.beforeEach(async (to, _from, next) => {
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 
-  if (to.matched.some(r => r.meta.requiresAdmin) && !auth.isAdmin) {
-    return next({ name: 'dashboard' })
+  // Her panel yalnızca kendi rolüne açık; yanlış paneldeki kişi kendi paneline gider
+  if (isWrongPanel(to, auth)) {
+    return next(auth.panelPath)
   }
 
   // Giriş yapmış kullanıcı giriş/kayıt sayfasına gitmeye çalışırsa panele al
   if ((to.name === 'login' || to.name === 'register') && auth.isLoggedIn && auth.hasProfile) {
-    return next(auth.isAdmin ? '/admin' : '/dashboard')
+    return next(auth.panelPath)
   }
 
   next()

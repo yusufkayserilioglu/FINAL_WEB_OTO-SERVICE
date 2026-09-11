@@ -71,9 +71,14 @@
         <!-- Right side -->
         <div class="flex items-center gap-3">
           <template v-if="auth.isLoggedIn">
-            <RouterLink to="/dashboard" class="hidden md:flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors">
+            <RouterLink
+              :to="auth.panelPath"
+              :title="auth.isAdmin ? 'Yönetim Paneli' : 'Panelim'"
+              class="hidden md:flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors"
+            >
               <div class="w-8 h-8 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center">
-                <User :size="14" class="text-gold" />
+                <ShieldCheck v-if="auth.isAdmin" :size="14" class="text-gold" />
+                <User v-else :size="14" class="text-gold" />
               </div>
               <span class="hidden lg:block">{{ auth.userName }}</span>
             </RouterLink>
@@ -127,8 +132,8 @@
           </RouterLink>
 
           <template v-if="auth.isLoggedIn">
-            <RouterLink to="/dashboard" @click="mobileOpen = false" class="text-base text-gray-300 hover:text-gold py-2 transition-colors">
-              Dashboard
+            <RouterLink :to="auth.panelPath" @click="mobileOpen = false" class="text-base text-gray-300 hover:text-gold py-2 transition-colors">
+              {{ auth.isAdmin ? 'Yönetim Paneli' : 'Dashboard' }}
             </RouterLink>
           </template>
           <template v-else>
@@ -160,7 +165,7 @@
 import { ref, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
 import { useScroll } from '@vueuse/core'
-import { MapPin, Clock, Phone, AtSign, MessageCircle, User, Menu, X } from 'lucide-vue-next'
+import { MapPin, Clock, Phone, AtSign, MessageCircle, User, ShieldCheck, Menu, X } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import site from '@/config/site'
 

@@ -14,6 +14,10 @@
         <span>{{ appointment.cars.brand.toUpperCase() }} {{ appointment.cars.model }} · {{ appointment.cars.plate }}</span>
       </div>
       <p v-if="appointment.note" class="note">{{ appointment.note }}</p>
+      <p v-if="isAdmin && slotCount > 0" class="slot-warn">
+        <AlertTriangle :size="12" />
+        Aynı saatte {{ slotCount }} randevu daha var
+      </p>
     </div>
     <div v-if="showActions && appointment.status === 'pending'" class="appt-footer">
       <button class="btn-cancel" @click="$emit('cancel', appointment.id)">İptal Et</button>
@@ -24,7 +28,7 @@
     </div>
     <!-- Admin actions -->
     <div v-if="isAdmin && appointment.status === 'pending'" class="appt-footer">
-      <button class="btn-confirm" @click="$emit('confirm', appointment.id)">Onayla</button>
+      <button class="btn-confirm" @click="$emit('confirm', appointment)">Onayla</button>
       <button class="btn-cancel"  @click="$emit('cancel', appointment.id)">İptal</button>
     </div>
     <div v-if="isAdmin && (appointment.status === 'confirmed' || appointment.status === 'completed')" class="appt-footer">
@@ -44,12 +48,14 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Calendar, Car } from 'lucide-vue-next'
+import { Calendar, Car, AlertTriangle } from 'lucide-vue-next'
 
 const props = defineProps({
   appointment: { type: Object, required: true },
   showActions: { type: Boolean, default: false },
   isAdmin:     { type: Boolean, default: false },
+  // Aynı gün + aynı saatteki DİĞER randevu sayısı (admin listesinde uyarı için)
+  slotCount:   { type: Number, default: 0 },
 })
 
 defineEmits(['cancel', 'confirm', 'report'])
@@ -119,6 +125,16 @@ const formattedDate = computed(() => {
   font-size: 12px;
   margin-top: 8px;
   font-style: italic;
+}
+
+.slot-warn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #eab308;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 8px;
 }
 
 .appt-footer {

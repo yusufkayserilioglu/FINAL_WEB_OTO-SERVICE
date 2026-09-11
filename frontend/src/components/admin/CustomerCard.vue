@@ -2,7 +2,10 @@
   <div class="customer-card" @click="$emit('select', customer.id)">
     <div class="avatar">{{ initials }}</div>
     <div class="info">
-      <p class="name">{{ customer.name }}</p>
+      <p class="name">
+        {{ customer.name }}
+        <span v-if="customer.is_walk_in" class="walk-in">Kayıtsız</span>
+      </p>
       <p class="phone">{{ customer.phone || 'Telefon yok' }}</p>
       <p class="cars">{{ carSummary }}</p>
     </div>
@@ -72,6 +75,19 @@ const carSummary = computed(() => {
   color: #e5e5e5;
   font-size: 14px;
   margin: 0 0 2px;
+}
+
+.walk-in {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(201, 168, 76, 0.15);
+  color: #c9a84c;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 .phone {

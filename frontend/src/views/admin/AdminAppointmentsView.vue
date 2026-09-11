@@ -31,11 +31,22 @@
         :key="appt.id"
         :appointment="appt"
         :is-admin="true"
-        @confirm="id => appointments.updateStatus(id, 'confirmed')"
+        :slot-count="slotCount(appt)"
+        @confirm="requestConfirm"
         @cancel="id => appointments.updateStatus(id, 'cancelled')"
         @report="handleReport"
       />
     </div>
+
+    <p v-if="confirmError" class="error-line">{{ confirmError }}</p>
+
+    <!-- Aynı saatte başka randevu varsa admine sorulur -->
+    <SlotConflictDialog
+      :pending="confirmPending"
+      :saving="confirmSaving"
+      @confirm="proceedConfirm"
+      @cancel="dismissConfirm"
+    />
   </div>
 </template>
 
@@ -44,11 +55,34 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Calendar } from 'lucide-vue-next'
 import { useAppointmentsStore, isPendingCompletion } from '@/stores/appointments'
-import AppointmentCard from '@/components/appointments/AppointmentCard.vue'
+import { useAppointmentConfirm } from '@/composables/useAppointmentConfirm'
+import { hourOf, isActive } from '@/utils/schedule'
+import AppointmentCard    from '@/components/appointments/AppointmentCard.vue'
+import SlotConflictDialog from '@/components/appointments/SlotConflictDialog.vue'
 
 const appointments = useAppointmentsStore()
 const router       = useRouter()
 const activeTab    = ref('pending')
+
+// Onay akışı: aynı saatte başka randevu varsa önce admine sorar
+const {
+  pending:  confirmPending,
+  saving:   confirmSaving,
+  error:    confirmError,
+  requestConfirm,
+  proceed:  proceedConfirm,
+  dismiss:  dismissConfirm,
+} = useAppointmentConfirm()
+
+// Aynı gün + aynı saatteki diğer randevu sayısı (kart üzerindeki uyarı)
+function slotCount(appt) {
+  return appointments.appointments.filter(a =>
+    a.id !== appt.id &&
+    a.date === appt.date &&
+    isActive(a) &&
+    hourOf(a.time) === hourOf(appt.time)
+  ).length
+}
 
 const tabs = [
   { value: 'pending',   label: 'Bekleyen' },
@@ -159,5 +193,12 @@ async function handleReport(appt) {
 .empty-icon {
   color: rgba(201, 168, 76, 0.3);
   margin-bottom: 12px;
+}
+
+.error-line {
+  color: #ef4444;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 12px;
 }
 </style>
