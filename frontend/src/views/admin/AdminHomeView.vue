@@ -141,14 +141,17 @@ const showNewCustomer = ref(false)
 
 async function loadStats() {
   try {
-    const [customersRes, apptRes, convRes] = await Promise.all([
+    const [customersRes, apptRes, convRes, guestRes] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user'),
       supabase.from('appointments').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('conversations').select('unread_admin'),
+      // üye olmadan iletişim sayfasından gelenler
+      supabase.from('guest_messages').select('id', { count: 'exact', head: true }).is('read_at', null),
     ])
     stats.value.customers           = customersRes.count ?? 0
     stats.value.pendingAppointments = apptRes.count ?? 0
     stats.value.unreadMessages      = (convRes.data ?? []).reduce((s, c) => s + (c.unread_admin || 0), 0)
+                                    + (guestRes.count ?? 0)
   } catch {
     // istatistikler yüklenemese bile panel çalışmaya devam eder
   } finally {

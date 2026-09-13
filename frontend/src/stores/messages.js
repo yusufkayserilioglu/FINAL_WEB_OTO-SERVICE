@@ -1,12 +1,13 @@
 import { defineStore }  from 'pinia'
-import { ref }          from 'vue'
+import { ref, computed } from 'vue'
 import { supabase }     from '@/lib/supabase'
-import { useAuthStore } from './auth'
+import { useAuthStore, normalizePhone } from './auth'
 
 export const useMessagesStore = defineStore('messages', () => {
   const conversation  = ref(null)
   const messages      = ref([])
   const conversations = ref([])   // admin
+  const guestMessages = ref([])   // admin — iletişim sayfasından üye olmadan gelenler
   const loading       = ref(false)
   const sendError     = ref(null)
   const error         = ref(null)
@@ -196,21 +197,79 @@ export const useMessagesStore = defineStore('messages', () => {
     Object.assign(conversation.value, patch)
   }
 
+  // ─── Üye olmayan ziyaretçi (iletişim sayfası) ─────────────────────────────
+  // Ziyaretçinin hesabı olmadığı için mesaj ayrı tabloya düşer; usta WhatsApp'tan döner.
+  async function submitGuestMessage({ name, phone, car, content }) {
+    const { error: err } = await supabase.rpc('submit_guest_message', {
+      p_name:     (name || '').trim(),
+      p_phone:    normalizePhone(phone),
+      p_content:  (content || '').trim(),
+      p_car_info: (car || '').trim() || null,
+    })
+    if (err) throw new Error(translateGuestError(err))
+  }
+
   // ─── Admin ────────────────────────────────────────────────────────────────
+  // Mesaj kutusu: üyelerin sohbetleri + üye olmayanların mesajları
   async function fetchAllConversations() {
     loading.value = true
     try {
-      const { data, error: err } = await supabase
-        .from('conversations')
-        .select('*, profiles(name, phone)')
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-      if (err) throw err
-      conversations.value = data ?? []
+      const [convRes, guestRes] = await Promise.all([
+        supabase
+          .from('conversations')
+          .select('*, profiles(name, phone)')
+          .order('last_message_at', { ascending: false, nullsFirst: false }),
+        supabase
+          .from('guest_messages')
+          .select('*')
+          .order('created_at', { ascending: true }),
+      ])
+      if (convRes.error) throw convRes.error
+      conversations.value = convRes.data ?? []
+      // 006 migrasyonu çalıştırılmadıysa üye sohbetleri yine de listelenir
+      guestMessages.value = guestRes.error ? [] : (guestRes.data ?? [])
     } catch (e) {
       error.value = e.message
     } finally {
       loading.value = false
     }
+  }
+
+  // Üye olmayanların mesajları telefona göre tek satırda toplanır
+  const guestThreads = computed(() => {
+    const byPhone = new Map()
+    for (const m of guestMessages.value) {
+      let t = byPhone.get(m.phone)
+      if (!t) {
+        t = { phone: m.phone, name: m.name, car_info: null, items: [], unread: 0, last_message_at: null }
+        byPhone.set(m.phone, t)
+      }
+      t.items.push(m)
+      t.name            = m.name          // liste eskiden yeniye: en son yazılan ad kalır
+      t.car_info        = m.car_info || t.car_info
+      t.last_message_at = m.created_at
+      if (!m.read_at) t.unread++
+    }
+    return [...byPhone.values()]
+  })
+
+  async function markGuestRead(phone) {
+    const now = new Date().toISOString()
+    const { error: err } = await supabase
+      .from('guest_messages')
+      .update({ read_at: now })
+      .eq('phone', phone)
+      .is('read_at', null)
+    if (err) return
+    for (const m of guestMessages.value) {
+      if (m.phone === phone && !m.read_at) m.read_at = now
+    }
+  }
+
+  async function deleteGuestThread(phone) {
+    const { error: err } = await supabase.from('guest_messages').delete().eq('phone', phone)
+    if (err) throw new Error('Mesajlar silinemedi. Tekrar deneyin.')
+    guestMessages.value = guestMessages.value.filter(m => m.phone !== phone)
   }
 
   async function loadConversationById(conversationId) {
@@ -238,5 +297,16 @@ export const useMessagesStore = defineStore('messages', () => {
     uploadMessageImage,
     subscribeToMessages, unsubscribe, markRead,
     fetchAllConversations, loadConversationById, sendAdminMessage,
+    guestMessages, guestThreads, submitGuestMessage, markGuestRead, deleteGuestThread,
   }
 })
+
+function translateGuestError(err) {
+  const msg = err?.message || ''
+  if (msg.includes('rate_limited'))    return 'Çok sık mesaj gönderdiniz. Biraz sonra tekrar deneyin ya da WhatsApp\'tan yazın.'
+  if (msg.includes('invalid_phone'))   return 'Geçerli bir telefon numarası girin.'
+  if (msg.includes('invalid_name'))    return 'Adınızı ve soyadınızı girin.'
+  if (msg.includes('invalid_content')) return 'Mesajınızı yazın (en fazla 2000 karakter).'
+  if (msg.includes('invalid_car'))     return 'Araç bilgisi çok uzun.'
+  return 'Mesajınız gönderilemedi. Tekrar deneyin ya da WhatsApp\'tan yazın.'
+}

@@ -8,23 +8,7 @@
         </h2>
       </div>
 
-      <!-- Garaj Fotoğrafları -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-14 max-w-sm mx-auto md:max-w-3xl" v-scroll-reveal="{ delay: 100 }">
-        <div class="md:col-span-2 rounded-2xl overflow-hidden group">
-          <img :src="garajImg3" alt="Lions Garaj"
-               class="w-full h-auto block group-hover:scale-[1.03] transition-transform duration-700 ease-out" />
-        </div>
-        <div class="flex flex-row md:flex-col gap-3">
-          <div class="rounded-2xl overflow-hidden group flex-1">
-            <img :src="garajImg1" alt="Lions Garaj"
-                 class="w-full h-auto block group-hover:scale-[1.03] transition-transform duration-700 ease-out" />
-          </div>
-          <div class="rounded-2xl overflow-hidden group flex-1">
-            <img :src="garajImg2" alt="Lions Garaj"
-                 class="w-full h-auto block group-hover:scale-[1.03] transition-transform duration-700 ease-out" />
-          </div>
-        </div>
-      </div>
+      <GaragePhotos class="mb-14" v-scroll-reveal="{ delay: 100 }" />
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
         <a
@@ -86,9 +70,7 @@
 import { RouterLink } from 'vue-router'
 import { MapPin, Phone, Clock, ArrowRight } from 'lucide-vue-next'
 import site from '@/config/site'
-import garajImg1 from '@/assets/lions-garaj.jpg'
-import garajImg2 from '@/assets/lions-garaj2.jpg'
-import garajImg3 from '@/assets/lions-garaj3.jpg'
+import GaragePhotos from './GaragePhotos.vue'
 
 const contactItems = [
   {
@@ -96,7 +78,7 @@ const contactItems = [
     title:    'Adresimiz',
     value:    site.contact.address,
     sub:      'Etimesgut, Ankara',
-    href:     `https://maps.google.com?q=${encodeURIComponent(site.contact.address)}`,
+    href:     site.contact.mapsUrl,
     external: true,
   },
   {
