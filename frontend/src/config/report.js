@@ -13,18 +13,19 @@ export const reportCompany = {
   web:     'www.ankarabmwozelservis.com',
 }
 
+
 // Belgenin üst şeridindeki 6 marka logosu.
 // src null iken yer tutucu (kesikli çerçeve + marka adı) gösterilir.
 // Gerçek logolar gelince: dosyayı frontend/src/assets/report/ içine koyun ve
 //   src: new URL('../assets/report/bmw.png', import.meta.url).href
 // şeklinde girin. Başka hiçbir yeri değiştirmeye gerek yok.
 export const reportBrandLogos = [
-  { name: 'BMW',           src: null },
-  { name: 'Land Rover',    src: null },
-  { name: 'MINI',          src: null },
-  { name: 'Audi',          src: null },
-  { name: 'Mercedes-Benz', src: null },
-  { name: 'Porsche',       src: null },
+  { name: 'BMW',           src: new URL('../assets/report/bmw.png', import.meta.url).href },
+  { name: 'Land Rover',    src: new URL('../assets/report/land-rover.png', import.meta.url).href },
+  { name: 'MINI',          src: new URL('../assets/report/mini.png', import.meta.url).href },
+  { name: 'Audi',          src: new URL('../assets/report/audi.png', import.meta.url).href },
+  { name: 'Mercedes-Benz', src: new URL('../assets/report/mercedes.png', import.meta.url).href },
+  { name: 'Porsche',       src: new URL('../assets/report/porsche.png', import.meta.url).href },
 ]
 
 // Kalem birimleri — combobox/select için. Serbest metin de kabul edilir.
