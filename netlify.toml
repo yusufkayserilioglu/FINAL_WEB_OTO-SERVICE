@@ -1,0 +1,20 @@
+ 
+[build]
+  # Asıl proje frontend klasöründe; npm komutları burada çalışır
+  base    = "frontend"
+ 
+  # Aşağıdaki iki yol "base" klasörüne GÖREdir
+  command = "npm run build"
+  publish = "dist"
+ 
+[build.environment]
+  # Vite 8 için Node 20+ gerekir
+  NODE_VERSION = "22"
+ 
+# Vue Router history modu için: tüm adresler index.html'e yönlendirilir.
+# Bu olmadan /dashboard gibi sayfalarda yenileme yapınca 404 alınır.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+ 
