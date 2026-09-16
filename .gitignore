@@ -7,6 +7,7 @@
 !.env.example
 docker.env
 *.local
+*.cache
 
 # Supabase yerel gelistirme kalintilari (JWT secret, service_role key vb.)
 backend/supabase/.temp/
